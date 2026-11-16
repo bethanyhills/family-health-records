@@ -53,7 +53,7 @@ jobs:
           import json, sys
           def walk(node, path=""):
               name = node.get("name", "")
-              if node.get("result") == "Failed" and node.get("nodeType") in ("Failure Message", "Test Case", "Runtime Warning"):
+              if node.get("nodeType") == "Failure Message" or (node.get("nodeType") == "Test Case" and node.get("result") == "Failed"):
                   print(node.get("nodeType"), "|", path, "|", name)
               for child in node.get("children", []):
                   walk(child, path + "/" + name)
