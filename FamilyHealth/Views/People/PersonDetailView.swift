@@ -14,6 +14,36 @@ struct PersonDetailView: View {
         List {
             header
 
+            Section("Health records") {
+                RecordLink("Medications", systemImage: "pills.fill", color: .blue, count: person.medications.filter(\.isActive).count) {
+                    MedicationsView(person: person)
+                }
+                RecordLink("Allergies", systemImage: "allergens.fill", color: .red, count: person.allergies.count) {
+                    AllergiesView(person: person)
+                }
+                RecordLink("Conditions", systemImage: "stethoscope", color: .purple, count: person.conditions.filter { $0.status != .resolved }.count) {
+                    ConditionsView(person: person)
+                }
+                RecordLink("Surgeries & procedures", systemImage: "cross.case.fill", color: .orange, count: person.procedures.count) {
+                    ProceduresView(person: person)
+                }
+                RecordLink("Immunizations", systemImage: "syringe.fill", color: .teal, count: person.immunizations.count) {
+                    ImmunizationsView(person: person)
+                }
+                RecordLink("Family history", systemImage: "person.3.fill", color: .brown, count: person.familyHistory.count) {
+                    FamilyHistoryView(person: person)
+                }
+            }
+
+            Section("Care team") {
+                RecordLink("Providers", systemImage: "person.badge.shield.checkmark.fill", color: .green, count: person.providers.count) {
+                    ProvidersView(person: person)
+                }
+                RecordLink("Insurance", systemImage: "creditcard.fill", color: .indigo, count: person.insurancePolicies.count) {
+                    InsuranceView(person: person)
+                }
+            }
+
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
                 InfoRow("Sex", person.sex == .unspecified ? "" : person.sex.label)
@@ -126,6 +156,49 @@ struct EmergencyContactRow: View {
                     UIPasteboard.general.string = contact.phone
                 } label: {
                     Label("Copy phone number", systemImage: "doc.on.doc")
+                }
+            }
+        }
+    }
+}
+
+/// A row linking to one kind of record, with a colored icon and a count.
+struct RecordLink<Destination: View>: View {
+    let title: String
+    let systemImage: String
+    let color: Color
+    let count: Int
+    @ViewBuilder let destination: () -> Destination
+
+    init(
+        _ title: String,
+        systemImage: String,
+        color: Color,
+        count: Int,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.color = color
+        self.count = count
+        self.destination = destination
+    }
+
+    var body: some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(color.gradient, in: RoundedRectangle(cornerRadius: 7))
+                Text(title)
+                Spacer()
+                if count > 0 {
+                    Text("\(count)")
+                        .foregroundStyle(.secondary)
                 }
             }
         }
