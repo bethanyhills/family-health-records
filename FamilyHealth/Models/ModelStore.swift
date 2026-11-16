@@ -24,8 +24,9 @@ enum SchemaV3: VersionedSchema {
     }
 }
 
-/// When a model changes: freeze the current schema like `SchemaV1`, add a new
-/// version with the live classes, and add a stage below.
+/// When a model changes: freeze the current schema like `SchemaV1` and `SchemaV2`,
+/// add a new version with the live classes, add a stage below, and point
+/// `ModelStore.currentSchema` at the new version.
 enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self, SchemaV3.self] }
 
@@ -39,6 +40,8 @@ enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
 
 enum ModelStore {
     static let storeName = "FamilyHealth"
+    /// The newest schema version, the one that uses the live model classes.
+    static let currentSchema: any VersionedSchema.Type = SchemaV3.self
 
     /// Records live only on this device. `cloudKitDatabase: .none` keeps
     /// SwiftData from ever syncing health data to iCloud (App Store guideline 5.1.3).
@@ -53,7 +56,7 @@ enum ModelStore {
     }
 
     static func openContainer(inMemory: Bool = false, url: URL? = nil) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SchemaV2.self)
+        let schema = Schema(versionedSchema: currentSchema)
         let configuration: ModelConfiguration
         if let url {
             configuration = ModelConfiguration(storeName, schema: schema, url: url, cloudKitDatabase: .none)
