@@ -143,6 +143,18 @@ final class FeedbackRoundOneTests: XCTestCase {
         XCTAssertEqual(kid.preferredPharmacy, "")
     }
 
+    // MARK: School grade
+
+    func testSchoolGradeListIsInOrderAndKeepsOldTypedGrades() {
+        XCTAssertEqual(Array(SchoolGrade.all.prefix(5)), ["Preschool", "Pre-K", "Kindergarten", "1st grade", "2nd grade"])
+        XCTAssertTrue(SchoolGrade.all.contains("3rd grade"))
+        XCTAssertTrue(SchoolGrade.all.contains("11th grade"))
+        XCTAssertTrue(SchoolGrade.all.contains("12th grade"))
+        XCTAssertEqual(SchoolGrade.options(keeping: "3rd grade"), SchoolGrade.all)
+        XCTAssertEqual(SchoolGrade.options(keeping: ""), SchoolGrade.all)
+        XCTAssertEqual(SchoolGrade.options(keeping: "3rd").first, "3rd")
+    }
+
     // MARK: Business card
 
     func testBusinessCardParserReadsTherapistCard() {

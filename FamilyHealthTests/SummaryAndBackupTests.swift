@@ -41,7 +41,7 @@ final class SummaryAndBackupTests: XCTestCase {
         school.nurseName = "Nurse Lee"
         school.nursePhone = "555-0177"
         school.students = [child]
-        child.schoolGrade = "3rd"
+        child.schoolGrade = "3rd grade"
         child.teacherName = "Ms. Park"
 
         let provider = Provider(name: "Dr. Rivera", specialty: "Pediatrics")

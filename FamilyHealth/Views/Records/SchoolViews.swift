@@ -84,7 +84,10 @@ struct SchoolEditView: View {
             }
             if !noSchool {
                 Section("\(person.displayName)'s year") {
-                    TextField("Grade (e.g. 3rd)", text: $grade)
+                    Picker("Grade", selection: $grade) {
+                        Text("Not set").tag("")
+                        ForEach(SchoolGrade.options(keeping: grade), id: \.self) { Text($0).tag($0) }
+                    }
                     TextField("Teacher's name", text: $teacherName)
                         .textInputAutocapitalization(.words)
                     TextField("Teacher's email", text: $teacherEmail)
@@ -158,5 +161,33 @@ struct SchoolEditView: View {
         person.teacherName = teacherName.trimmed
         person.teacherEmail = teacherEmail.trimmed
         person.teacherPhone = teacherPhone.trimmed
+    }
+}
+
+/// The grades offered in the school editor. Stored as plain text on `Person.schoolGrade`.
+enum SchoolGrade {
+    static let all: [String] = ["Preschool", "Pre-K", "Kindergarten"]
+        + (1...12).map(ordinal).map { "\($0) grade" }
+        + ["College", "Not in school"]
+
+    /// The standard list, plus a grade typed by hand in an earlier version so it isn't lost.
+    static func options(keeping current: String) -> [String] {
+        let current = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        return current.isEmpty || all.contains(current) ? all : [current] + all
+    }
+
+    private static func ordinal(_ n: Int) -> String {
+        let suffix: String
+        switch n % 100 {
+        case 11, 12, 13: suffix = "th"
+        default:
+            switch n % 10 {
+            case 1: suffix = "st"
+            case 2: suffix = "nd"
+            case 3: suffix = "rd"
+            default: suffix = "th"
+            }
+        }
+        return "\(n)\(suffix)"
     }
 }
