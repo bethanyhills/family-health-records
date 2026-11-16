@@ -10,6 +10,7 @@ struct PeopleListView: View {
     @State private var isAddingPerson = false
     @State private var isShowingSettings = false
     @State private var personToDelete: Person?
+    @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
 
     var body: some View {
         NavigationStack {
@@ -72,6 +73,28 @@ struct PeopleListView: View {
 
     private var list: some View {
         List {
+            if BackupStatus.isDue(lastBackupAt: lastBackupAt) {
+                Section {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(lastBackupAt == 0 ? "Make your first backup" : "Time for a fresh backup")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("A password-protected backup keeps your records safe if this iPhone is lost.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "externaldrive.fill.badge.exclamationmark")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
             ForEach(people) { person in
                 NavigationLink(value: person) {
                     PersonRow(person: person)
