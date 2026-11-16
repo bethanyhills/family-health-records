@@ -109,8 +109,15 @@ final class FeedbackRoundOneTests: XCTestCase {
             try context.save()
         }
 
-        // Opened by this version.
-        let context = ModelContext(ModelStore.makeContainer(url: url))
+        // Opened by this version. Throws (instead of crashing) so a failure shows its reason.
+        let container: ModelContainer
+        do {
+            container = try ModelStore.openContainer(url: url)
+        } catch {
+            return XCTFail("Upgrade failed: \(error)")
+        }
+        let context = ModelContext(container)
+        try ModelStore.upgradeData(in: context)
         let people = try context.fetch(FetchDescriptor<Person>(sortBy: [SortDescriptor(\.name)]))
         XCTAssertEqual(people.map(\.name), ["Kid Example", "Sib Example"])
         let kid = people[0]
