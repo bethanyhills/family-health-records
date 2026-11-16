@@ -1,6 +1,6 @@
-# Family Health Records
+# Family Health Binder
 
-An iPhone app that holds every family member's medical history in one place, so filling out a new doctor's or therapist's intake form takes minutes instead of logging into multiple patient portals.
+_Intake-ready medical records._ An iPhone app that holds every family member's medical history in one place, so filling out a new doctor's or therapist's intake form takes minutes instead of logging into multiple patient portals.
 
 - **Private by design.** Records live only on the iPhone, encrypted whenever it is locked. No server, account, analytics or iCloud sync.
 - **Face ID lock.** The app asks for Face ID or the passcode every time it opens.

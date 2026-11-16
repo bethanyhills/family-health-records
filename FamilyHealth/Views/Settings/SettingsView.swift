@@ -19,7 +19,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Security")
                 } footer: {
-                    Text("Asks for \(AppLock.biometryName) or your passcode every time Family Health opens.")
+                    Text("Asks for \(AppLock.biometryName) or your passcode every time Family Health Binder opens.")
                 }
 
                 Section("Privacy") {
@@ -29,7 +29,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Family Health is a place to keep your own records. It doesn't give medical advice. Always check with your doctor or pharmacist before making medical decisions.")
+                    Text("Family Health Binder is a place to keep your own records. It doesn't give medical advice. Always check with your doctor or pharmacist before making medical decisions.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } header: {

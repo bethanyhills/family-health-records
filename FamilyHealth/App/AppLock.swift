@@ -78,7 +78,7 @@ struct LockView: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(.tint)
-            Text("Family Health is locked")
+            Text("Family Health Binder is locked")
                 .font(.title2.bold())
             if let message = appLock.message {
                 Text(message)
