@@ -90,9 +90,25 @@ struct InsuranceEditView: View {
     @State private var back: Data?
     @State private var memberIDs: Set<UUID> = []
     @State private var didLoad = false
+    @State private var isReadingCard = false
+    @State private var scanNote: String?
 
     var body: some View {
         EditorForm(title: policy == nil ? "New insurance" : "Edit insurance", canSave: !carrier.isBlank, onSave: save) {
+            Section {
+                CardPhotoField(label: "Front", data: $front, onNewPhoto: readCard)
+                CardPhotoField(label: "Back", data: $back, onNewPhoto: readCard)
+            } header: {
+                Text("Card photos")
+            } footer: {
+                if isReadingCard {
+                    Text("Reading the card…")
+                } else if let scanNote {
+                    Text(scanNote)
+                } else {
+                    Text("Scan the card first and the details below fill in for you. The card is read on this iPhone.")
+                }
+            }
             Section {
                 Picker("Type", selection: $kind) {
                     ForEach(InsuranceKind.allCases) { Text($0.label).tag($0) }
@@ -111,7 +127,7 @@ struct InsuranceEditView: View {
             Section("Policy holder") {
                 TextField("Name", text: $subscriberName)
                     .textContentType(.name)
-                OptionalDatePicker(label: "Date of birth", date: $subscriberDateOfBirth)
+                DateField(label: "Date of birth", date: $subscriberDateOfBirth)
             }
             Section("Prescription (on the card)") {
                 TextField("Rx BIN", text: $rxBIN)
@@ -120,19 +136,8 @@ struct InsuranceEditView: View {
             }
             .autocorrectionDisabled()
             .textInputAutocapitalization(.characters)
-            Section("Card photos") {
-                CardPhotoField(label: "Front", data: $front)
-                CardPhotoField(label: "Back", data: $back)
-            }
             Section("Covers") {
-                ForEach(people) { person in
-                    Toggle(person.displayName, isOn: Binding(
-                        get: { memberIDs.contains(person.id) },
-                        set: { isOn in
-                            if isOn { memberIDs.insert(person.id) } else { memberIDs.remove(person.id) }
-                        }
-                    ))
-                }
+                PeopleToggles(people: people, selection: $memberIDs)
             }
             Section { NotesField(text: $notes) }
         }
@@ -158,6 +163,34 @@ struct InsuranceEditView: View {
             } else if let defaultMember {
                 memberIDs = [defaultMember.id]
             }
+        }
+    }
+
+    /// Reads the photo on the phone and fills in any fields that are still empty.
+    private func readCard(_ photo: Data) {
+        isReadingCard = true
+        Task {
+            let found = InsuranceCardParser.parse(await TextRecognizer.lines(in: photo))
+            var filled = 0
+            func fill(_ field: inout String, _ value: String) {
+                if field.isBlank && !value.isEmpty {
+                    field = value
+                    filled += 1
+                }
+            }
+            fill(&carrier, found.carrier)
+            fill(&planName, found.planName)
+            fill(&memberID, found.memberID)
+            fill(&groupNumber, found.groupNumber)
+            fill(&subscriberName, found.subscriberName)
+            fill(&phone, found.phone)
+            fill(&rxBIN, found.rxBIN)
+            fill(&rxPCN, found.rxPCN)
+            fill(&rxGroup, found.rxGroup)
+            isReadingCard = false
+            scanNote = filled == 0
+                ? "Couldn't read new details from this photo. You can type them in below."
+                : "Filled in \(filled) field\(filled == 1 ? "" : "s") from the card. Please check them."
         }
     }
 
@@ -189,6 +222,8 @@ struct InsuranceEditView: View {
 struct CardPhotoField: View {
     let label: String
     @Binding var data: Data?
+    /// Called with each newly added photo, e.g. to read the card.
+    var onNewPhoto: ((Data) -> Void)?
 
     @State private var photoItem: PhotosPickerItem?
     @State private var isScanning = false
@@ -236,15 +271,19 @@ struct CardPhotoField: View {
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task {
-                if let raw = try? await item.loadTransferable(type: Data.self) {
-                    data = ImageDownscaler.jpeg(from: raw)
+                if let raw = try? await item.loadTransferable(type: Data.self),
+                   let jpeg = ImageDownscaler.jpeg(from: raw) {
+                    data = jpeg
+                    onNewPhoto?(jpeg)
                 }
             }
         }
         .fullScreenCover(isPresented: $isScanning) {
             DocumentScanner { image in
-                if let image, let jpeg = image.jpegData(compressionQuality: 1) {
-                    data = ImageDownscaler.jpeg(from: jpeg)
+                if let image, let raw = image.jpegData(compressionQuality: 1),
+                   let jpeg = ImageDownscaler.jpeg(from: raw) {
+                    data = jpeg
+                    onNewPhoto?(jpeg)
                 }
                 isScanning = false
             }

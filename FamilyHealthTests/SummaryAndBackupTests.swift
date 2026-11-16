@@ -30,7 +30,11 @@ final class SummaryAndBackupTests: XCTestCase {
 
         let contact = EmergencyContact(name: "Pat Example", relationship: "Parent", phone: "555-0100")
         context.insert(contact)
-        contact.person = child
+        contact.people = [child]
+
+        let pharmacy = Pharmacy(name: "Walgreens", phone: "555-0199", address: "1 Main St")
+        context.insert(pharmacy)
+        pharmacy.patients = [parent, child]
 
         let provider = Provider(name: "Dr. Rivera", specialty: "Pediatrics")
         context.insert(provider)
@@ -60,6 +64,8 @@ final class SummaryAndBackupTests: XCTestCase {
 
         XCTAssertFalse(sections.contains { $0.title == "Past conditions" }, "Empty past conditions are hidden")
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Member ID: XYZ123"))
+        XCTAssertTrue(IntakeSummary.text(for: child).contains("Walgreens: 1 Main St, 555-0199"))
+        XCTAssertTrue(IntakeSummary.text(for: child).contains("Pat Example: Parent, 555-0100"))
     }
 
     func testSummaryItemIDsAreStable() {
@@ -105,7 +111,12 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertEqual(try target.fetchCount(FetchDescriptor<Provider>()), 1)
         XCTAssertEqual(child.insurancePolicies.first?.cardFrontImage, Data([1, 2, 3]))
         XCTAssertEqual(child.insurancePolicies.first?.members.count, 2)
-        XCTAssertEqual(try BackupArchive(context: target).people, archive.people)
+        XCTAssertEqual(child.pharmacies.map(\.name), ["Walgreens"])
+        XCTAssertEqual(child.contacts.map(\.name), ["Pat Example"])
+        let restored = try BackupArchive(context: target)
+        XCTAssertEqual(restored.people, archive.people)
+        XCTAssertEqual(restored.pharmacies, archive.pharmacies)
+        XCTAssertEqual(restored.contacts, archive.contacts)
     }
 
     func testBackupRejectsWrongPasswordAndOtherFiles() throws {
@@ -135,5 +146,27 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertTrue(BackupStatus.isDue(lastBackupAt: 0, now: now))
         XCTAssertFalse(BackupStatus.isDue(lastBackupAt: now.timeIntervalSince1970 - 86_400, now: now))
         XCTAssertTrue(BackupStatus.isDue(lastBackupAt: now.timeIntervalSince1970 - 31 * 86_400, now: now))
+    }
+
+    func testVersionOneBackupRestoresContactsAndPharmacy() throws {
+        var archive = BackupArchive()
+        archive.version = 1
+        archive.pharmacies = nil
+        archive.contacts = nil
+        let id = UUID()
+        archive.people = [BackupArchive.PersonRecord(
+            id: id, name: "Kid Example", preferredName: "", dateOfBirth: nil, sex: "unspecified",
+            bloodType: "unknown", height: "", weight: "", preferredPharmacy: "CVS Naperville", notes: "",
+            photo: nil, sortOrder: 0, createdAt: .now, medications: [], allergies: [], conditions: [],
+            procedures: [], immunizations: [], familyHistory: [],
+            emergencyContacts: [.init(name: "Grandma", relationship: "Grandmother", phone: "555-0111", notes: "")]
+        )]
+        let context = ModelContext(ModelStore.makeContainer(inMemory: true))
+        try archive.restore(into: context)
+
+        let person = try XCTUnwrap(try context.fetch(FetchDescriptor<Person>()).first)
+        XCTAssertEqual(person.contacts.map(\.name), ["Grandma"])
+        XCTAssertEqual(person.pharmacies.map(\.name), ["CVS Naperville"])
+        XCTAssertEqual(person.preferredPharmacy, "")
     }
 }

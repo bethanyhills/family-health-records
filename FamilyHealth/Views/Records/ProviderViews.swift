@@ -58,6 +58,7 @@ struct ProviderRow: View {
 struct ProviderEditView: View {
     let provider: Provider?
     let defaultPatient: Person?
+    var onSaved: ((Provider) -> Void)?
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Person.sortOrder), SortDescriptor(\Person.name)]) private var people: [Person]
@@ -94,14 +95,7 @@ struct ProviderEditView: View {
                     .autocorrectionDisabled()
             }
             Section("Sees") {
-                ForEach(people) { person in
-                    Toggle(person.displayName, isOn: Binding(
-                        get: { patientIDs.contains(person.id) },
-                        set: { isOn in
-                            if isOn { patientIDs.insert(person.id) } else { patientIDs.remove(person.id) }
-                        }
-                    ))
-                }
+                PeopleToggles(people: people, selection: $patientIDs)
             }
             Section { NotesField(text: $notes) }
         }
@@ -139,5 +133,6 @@ struct ProviderEditView: View {
         target.portalURL = portalURL.trimmed
         target.notes = notes.trimmed
         target.patients = people.filter { patientIDs.contains($0.id) }
+        onSaved?(target)
     }
 }

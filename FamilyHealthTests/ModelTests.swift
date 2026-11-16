@@ -21,19 +21,20 @@ final class ModelTests: XCTestCase {
         context.insert(contact)
         medication.person = person
         allergy.person = person
-        contact.person = person
+        contact.people = [person]
         try context.save()
 
         XCTAssertEqual(person.medications.count, 1)
         XCTAssertEqual(person.allergies.count, 1)
-        XCTAssertEqual(person.emergencyContacts.count, 1)
+        XCTAssertEqual(person.contacts.count, 1)
 
         context.delete(person)
         try context.save()
 
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Medication>()), 0)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Allergy>()), 0)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<EmergencyContact>()), 0)
+        // Shared contacts stay (they may cover other family members) but lose this person.
+        XCTAssertEqual(contact.people.count, 0)
     }
 
     func testSharedProviderAndInsuranceSurviveDeletingOneFamilyMember() throws {

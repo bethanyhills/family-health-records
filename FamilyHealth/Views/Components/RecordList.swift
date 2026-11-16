@@ -146,6 +146,8 @@ struct EditorForm<Content: View>: View {
 
     var body: some View {
         Form { content }
+            // Medical words and names get "corrected" into the wrong thing.
+            .autocorrectionDisabled()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -160,26 +162,6 @@ struct EditorForm<Content: View>: View {
                     .disabled(!canSave)
                 }
             }
-    }
-}
-
-/// A toggle that reveals a date picker; `nil` when the date isn't known.
-struct OptionalDatePicker: View {
-    let label: String
-    @Binding var date: Date?
-
-    var body: some View {
-        Toggle(label, isOn: Binding(
-            get: { date != nil },
-            set: { date = $0 ? (date ?? .now) : nil }
-        ).animation())
-        if let current = date {
-            DatePicker(
-                "Date",
-                selection: Binding(get: { current }, set: { date = $0 }),
-                displayedComponents: .date
-            )
-        }
     }
 }
 

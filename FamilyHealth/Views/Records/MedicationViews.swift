@@ -31,6 +31,10 @@ struct MedicationEditView: View {
     let medication: Medication?
 
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Provider.name) private var providers: [Provider]
+    @Query(sort: \Pharmacy.name) private var pharmacies: [Pharmacy]
+    @State private var isAddingProvider = false
+    @State private var isAddingPharmacy = false
     @State private var name = ""
     @State private var dose = ""
     @State private var frequency = ""
@@ -53,18 +57,45 @@ struct MedicationEditView: View {
                 Toggle("Currently taking", isOn: $isActive)
             }
             Section {
-                TextField("Prescribed by", text: $prescriber)
-                TextField("Pharmacy", text: $pharmacy)
-                OptionalDatePicker(label: "Start date", date: $startDate)
+                ChoiceTextField(
+                    placeholder: "Prescribed by",
+                    text: $prescriber,
+                    options: names(of: providers, linkedTo: person.providers),
+                    addNewTitle: "New provider…",
+                    onAddNew: { isAddingProvider = true }
+                )
+                ChoiceTextField(
+                    placeholder: "Pharmacy",
+                    text: $pharmacy,
+                    options: names(of: pharmacies, linkedTo: person.pharmacies),
+                    addNewTitle: "New pharmacy…",
+                    onAddNew: { isAddingPharmacy = true }
+                )
+                DateField(label: "Start date", date: $startDate)
                 if !isActive {
-                    OptionalDatePicker(label: "Stop date", date: $endDate)
+                    DateField(label: "Stop date", date: $endDate)
                 }
             }
             Section { NotesField(text: $notes) }
         }
+        .sheet(isPresented: $isAddingProvider) {
+            NavigationStack {
+                ProviderEditView(provider: nil, defaultPatient: person) { prescriber = $0.name }
+            }
+        }
+        .sheet(isPresented: $isAddingPharmacy) {
+            NavigationStack {
+                PharmacyEditView(pharmacy: nil, defaultPerson: person) { pharmacy = $0.name }
+            }
+        }
         .onAppear {
             guard !didLoad else { return }
             didLoad = true
+            if medication == nil {
+                // Most people use one pharmacy; start with it filled in.
+                if person.pharmacies.count == 1 { pharmacy = person.pharmacies[0].name }
+                return
+            }
             guard let medication else { return }
             name = medication.name
             dose = medication.dose
@@ -77,6 +108,18 @@ struct MedicationEditView: View {
             isActive = medication.isActive
             notes = medication.notes
         }
+    }
+
+    /// This person's own providers or pharmacies first, then everyone else's.
+    private func names<Item: PersistentModel>(of all: [Item], linkedTo mine: [Item]) -> [String] {
+        let label: (Item) -> String = { item in
+            (item as? Provider)?.name ?? (item as? Pharmacy)?.name ?? ""
+        }
+        let mineIDs = Set(mine.map(\.persistentModelID))
+        let first = all.filter { mineIDs.contains($0.persistentModelID) }.map(label)
+        let rest = all.filter { !mineIDs.contains($0.persistentModelID) }.map(label)
+        var seen = Set<String>()
+        return (first + rest).filter { !$0.isBlank && seen.insert($0).inserted }
     }
 
     private func save() {

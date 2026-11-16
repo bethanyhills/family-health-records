@@ -39,7 +39,7 @@ struct ProcedureEditView: View {
         EditorForm(title: procedure == nil ? "New procedure" : "Edit procedure", canSave: !name.isBlank, onSave: save) {
             Section {
                 TextField("Surgery or procedure (e.g. Tonsillectomy)", text: $name)
-                OptionalDatePicker(label: "Date", date: $date)
+                DateField(label: "Date", date: $date)
                 TextField("Hospital or facility", text: $facility)
                 TextField("Surgeon or doctor", text: $surgeon)
             }

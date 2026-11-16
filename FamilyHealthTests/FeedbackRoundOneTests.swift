@@ -1,0 +1,124 @@
+import SwiftData
+import XCTest
+@testable import FamilyHealth
+
+@MainActor
+final class FeedbackRoundOneTests: XCTestCase {
+    // MARK: Typed dates
+
+    func testTypedDateAddsSlashesAndKeepsEightDigits() {
+        XCTAssertEqual(TypedDate.format("0615"), "06/15")
+        XCTAssertEqual(TypedDate.format("061520151"), "06/15/2015")
+        XCTAssertEqual(TypedDate.format("06/15/2015"), "06/15/2015")
+        XCTAssertEqual(TypedDate.format("a1b2"), "12")
+    }
+
+    func testTypedDateParsesOnlyRealDates() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Chicago"))
+        let date = try XCTUnwrap(TypedDate.parse("06/15/2015", calendar: calendar))
+        XCTAssertEqual(TypedDate.string(from: date, calendar: calendar), "06/15/2015")
+        XCTAssertNil(TypedDate.parse("02/30/2015", calendar: calendar))
+        XCTAssertNil(TypedDate.parse("13/01/2015", calendar: calendar))
+        XCTAssertNil(TypedDate.parse("06/15/15", calendar: calendar))
+        XCTAssertNotNil(TypedDate.parse("02/29/2016", calendar: calendar))
+    }
+
+    // MARK: Height and weight
+
+    func testHeightReadsCommonFormats() {
+        XCTAssertEqual(BodyMeasurement.parseHeight("5 ft 4 in").text, "5 ft 4 in")
+        XCTAssertEqual(BodyMeasurement.parseHeight("5'4\"").text, "5 ft 4 in")
+        XCTAssertEqual(BodyMeasurement.parseHeight("64 in").text, "5 ft 4 in")
+        XCTAssertEqual(BodyMeasurement.parseHeight("163 cm").text, "163 cm")
+        XCTAssertEqual(BodyMeasurement.parseHeight("5 ft 4 in").conversion, "163 cm")
+    }
+
+    func testWeightReadsCommonFormats() {
+        XCTAssertEqual(BodyMeasurement.parseWeight("130 lbs").text, "130 lb")
+        XCTAssertEqual(BodyMeasurement.parseWeight("59.5 kg").text, "59.5 kg")
+        XCTAssertEqual(BodyMeasurement.parseWeight("130").text, "130 lb")
+        XCTAssertEqual(BodyMeasurement.parseWeight("130 lb").conversion, "59 kg")
+    }
+
+    // MARK: Insurance card
+
+    func testInsuranceCardParserReadsTypicalCard() {
+        let lines = [
+            "BlueCross BlueShield of Illinois",
+            "PPO",
+            "Subscriber Name",
+            "JANE Q DOE",
+            "Member ID: XOF123456789",
+            "Group No. 012345",
+            "RxBIN 004336",
+            "RxPCN ADV",
+            "RxGRP RX1234",
+            "Member Services 1-800-555-0123",
+        ]
+        let result = InsuranceCardParser.parse(lines)
+        XCTAssertEqual(result.carrier, "Blue Cross Blue Shield")
+        XCTAssertEqual(result.subscriberName, "Jane Q Doe")
+        XCTAssertEqual(result.memberID, "XOF123456789")
+        XCTAssertEqual(result.groupNumber, "012345")
+        XCTAssertEqual(result.rxBIN, "004336")
+        XCTAssertEqual(result.rxPCN, "ADV")
+        XCTAssertEqual(result.rxGroup, "RX1234")
+        XCTAssertEqual(result.phone, "1-800-555-0123")
+    }
+
+    func testInsuranceCardParserHandlesValuesOnTheNextLine() {
+        let lines = ["aetna", "ID", "W123456789", "GROUP", "0987654-010-00001"]
+        let result = InsuranceCardParser.parse(lines)
+        XCTAssertEqual(result.carrier, "Aetna")
+        XCTAssertEqual(result.memberID, "W123456789")
+        XCTAssertEqual(result.groupNumber, "0987654-010-00001")
+    }
+
+    func testInsuranceCardParserLeavesUnknownFieldsEmpty() {
+        let result = InsuranceCardParser.parse(["Some unrelated text", "nothing here"])
+        XCTAssertEqual(result.filledCount, 0)
+    }
+
+    // MARK: Database upgrade from 1.0
+
+    func testUpgradingAVersionOneDatabaseKeepsRecords() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("FamilyHealth.store")
+
+        // A database written by version 1.0.
+        try autoreleasepool {
+            let schema = Schema(versionedSchema: SchemaV1.self)
+            let configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
+            let container = try ModelContainer(for: schema, configurations: [configuration])
+            let context = ModelContext(container)
+            let kid = SchemaV1.Person(name: "Kid Example")
+            kid.preferredPharmacy = "Walgreens Naperville"
+            let sibling = SchemaV1.Person(name: "Sib Example")
+            sibling.preferredPharmacy = "walgreens naperville"
+            context.insert(kid)
+            context.insert(sibling)
+            let contact = SchemaV1.EmergencyContact(name: "Grandma", relationship: "Grandmother", phone: "555-0111")
+            context.insert(contact)
+            contact.person = kid
+            let med = SchemaV1.Medication(name: "Albuterol")
+            context.insert(med)
+            med.person = kid
+            try context.save()
+        }
+
+        // Opened by this version.
+        let context = ModelContext(ModelStore.makeContainer(url: url))
+        let people = try context.fetch(FetchDescriptor<Person>(sortBy: [SortDescriptor(\.name)]))
+        XCTAssertEqual(people.map(\.name), ["Kid Example", "Sib Example"])
+        let kid = people[0]
+        XCTAssertEqual(kid.medications.map(\.name), ["Albuterol"])
+        XCTAssertEqual(kid.contacts.map(\.name), ["Grandma"])
+        XCTAssertEqual(kid.pharmacies.map(\.name), ["Walgreens Naperville"])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Pharmacy>()), 1, "Same pharmacy typed twice becomes one")
+        XCTAssertEqual(people[1].pharmacies.first?.id, kid.pharmacies.first?.id)
+        XCTAssertEqual(kid.preferredPharmacy, "")
+    }
+}

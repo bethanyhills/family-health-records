@@ -11,6 +11,7 @@ final class Person {
     var bloodTypeRaw: String = BloodType.unknown.rawValue
     var height: String = ""
     var weight: String = ""
+    /// Replaced by `pharmacies` in 1.1; moved over by `ModelStore.upgradeData`.
     var preferredPharmacy: String = ""
     var notes: String = ""
     @Attribute(.externalStorage) var photoData: Data?
@@ -29,6 +30,7 @@ final class Person {
     var immunizations: [Immunization] = []
     @Relationship(deleteRule: .cascade, inverse: \FamilyHistoryItem.person)
     var familyHistory: [FamilyHistoryItem] = []
+    /// 1.0 per-person contacts. Moved into `contacts` by `ModelStore.upgradeData`; not used by the UI.
     @Relationship(deleteRule: .cascade, inverse: \EmergencyContact.person)
     var emergencyContacts: [EmergencyContact] = []
 
@@ -37,6 +39,11 @@ final class Person {
     var providers: [Provider] = []
     @Relationship(inverse: \InsurancePolicy.members)
     var insurancePolicies: [InsurancePolicy] = []
+    @Relationship(inverse: \Pharmacy.patients)
+    var pharmacies: [Pharmacy] = []
+    /// Emergency contacts, shared across family members (1.1).
+    @Relationship(inverse: \EmergencyContact.people)
+    var contacts: [EmergencyContact] = []
 
     init(name: String, dateOfBirth: Date? = nil, sortOrder: Int = 0) {
         self.name = name

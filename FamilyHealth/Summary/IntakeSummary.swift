@@ -43,6 +43,7 @@ enum IntakeSummary {
             immunizations(person),
             familyHistory(person),
             providers(person),
+            pharmacies(person),
             insurance(person),
             emergencyContacts(person),
         ]
@@ -79,7 +80,6 @@ enum IntakeSummary {
         if person.bloodType != .unknown { items.append(SummaryItem(label: "Blood type", value: person.bloodType.label)) }
         add(&items, "Height", person.height)
         add(&items, "Weight", person.weight)
-        add(&items, "Preferred pharmacy", person.preferredPharmacy)
         return SummarySection(title: "Patient", items: items)
     }
 
@@ -153,6 +153,13 @@ enum IntakeSummary {
         return SummarySection(title: "Doctors & providers", items: items)
     }
 
+    private static func pharmacies(_ person: Person) -> SummarySection {
+        let items = person.pharmacies
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .map { SummaryItem(label: $0.name, value: [$0.address, $0.phone].joined(", ")) }
+        return SummarySection(title: "Pharmacy", items: items)
+    }
+
     private static func insurance(_ person: Person) -> SummarySection {
         var items: [SummaryItem] = []
         for policy in person.insurancePolicies.sorted(by: { $0.kind.rawValue < $1.kind.rawValue }) {
@@ -173,7 +180,7 @@ enum IntakeSummary {
     }
 
     private static func emergencyContacts(_ person: Person) -> SummarySection {
-        let items = person.emergencyContacts
+        let items = person.contacts
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             .map { SummaryItem(label: $0.name, value: [$0.relationship, $0.phone].joined(", ")) }
         return SummarySection(title: "Emergency contacts", items: items)
