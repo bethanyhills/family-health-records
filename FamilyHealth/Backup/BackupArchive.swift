@@ -3,13 +3,19 @@ import SwiftData
 
 /// A plain, versioned copy of every record, used for the encrypted backup file.
 struct BackupArchive: Codable, Equatable {
-    static let currentVersion = 1
+    static let currentVersion = 2
 
     var version = BackupArchive.currentVersion
     var exportedAt = Date()
     var people: [PersonRecord] = []
     var providers: [ProviderRecord] = []
     var insurancePolicies: [InsuranceRecord] = []
+    /// Added in version 2. Missing from version 1 backups.
+    var pharmacies: [PharmacyRecord]? = []
+    /// Added in version 2. Version 1 kept contacts inside each person.
+    var contacts: [ContactRecord]? = []
+    /// Added in version 2.
+    var schools: [SchoolRecord]? = []
 
     struct PersonRecord: Codable, Equatable {
         var id: UUID
@@ -25,7 +31,26 @@ struct BackupArchive: Codable, Equatable {
         var procedures: [ProcedureRecord]
         var immunizations: [ImmunizationRecord]
         var familyHistory: [FamilyHistoryRecord]
+        /// Version 1 only; version 2 uses the shared `contacts` list.
         var emergencyContacts: [EmergencyContactRecord]
+        /// Added in version 2.
+        var schoolGrade, teacherName, teacherEmail, teacherPhone: String?
+    }
+
+    struct SchoolRecord: Codable, Equatable {
+        var name, address, phone, nurseName, nursePhone, nurseEmail, notes: String
+        var studentIDs: [UUID]
+    }
+
+    struct PharmacyRecord: Codable, Equatable {
+        var name, phone, address, notes: String
+        var latitude, longitude: Double?
+        var patientIDs: [UUID]
+    }
+
+    struct ContactRecord: Codable, Equatable {
+        var name, relationship, phone, notes: String
+        var personIDs: [UUID]
     }
 
     struct MedicationRecord: Codable, Equatable {
@@ -108,15 +133,29 @@ extension BackupArchive {
                 familyHistory: p.familyHistory.sorted { ($0.condition, $0.relative) < ($1.condition, $1.relative) }.map {
                     FamilyHistoryRecord(relative: $0.relative, condition: $0.condition, notes: $0.notes)
                 },
-                emergencyContacts: p.emergencyContacts.sorted { $0.name < $1.name }.map {
-                    EmergencyContactRecord(name: $0.name, relationship: $0.relationship, phone: $0.phone, notes: $0.notes)
-                }
+                emergencyContacts: [],
+                schoolGrade: p.schoolGrade, teacherName: p.teacherName,
+                teacherEmail: p.teacherEmail, teacherPhone: p.teacherPhone
             )
         }
         providers = try context.fetch(FetchDescriptor<Provider>(sortBy: [SortDescriptor(\.name)])).map {
             ProviderRecord(name: $0.name, specialty: $0.specialty, practice: $0.practice, phone: $0.phone,
                            fax: $0.fax, address: $0.address, portalURL: $0.portalURL, notes: $0.notes,
                            patientIDs: $0.patients.map(\.id).sorted { $0.uuidString < $1.uuidString })
+        }
+        pharmacies = try context.fetch(FetchDescriptor<Pharmacy>(sortBy: [SortDescriptor(\.name)])).map {
+            PharmacyRecord(name: $0.name, phone: $0.phone, address: $0.address, notes: $0.notes,
+                           latitude: $0.latitude, longitude: $0.longitude,
+                           patientIDs: $0.patients.map(\.id).sorted { $0.uuidString < $1.uuidString })
+        }
+        schools = try context.fetch(FetchDescriptor<School>(sortBy: [SortDescriptor(\.name)])).map {
+            SchoolRecord(name: $0.name, address: $0.address, phone: $0.phone, nurseName: $0.nurseName,
+                         nursePhone: $0.nursePhone, nurseEmail: $0.nurseEmail, notes: $0.notes,
+                         studentIDs: $0.students.map(\.id).sorted { $0.uuidString < $1.uuidString })
+        }
+        contacts = try context.fetch(FetchDescriptor<EmergencyContact>(sortBy: [SortDescriptor(\.name)])).map {
+            ContactRecord(name: $0.name, relationship: $0.relationship, phone: $0.phone, notes: $0.notes,
+                          personIDs: $0.people.map(\.id).sorted { $0.uuidString < $1.uuidString })
         }
         insurancePolicies = try context.fetch(FetchDescriptor<InsurancePolicy>(sortBy: [SortDescriptor(\.carrier)])).map {
             InsuranceRecord(kind: $0.kindRaw, carrier: $0.carrier, planName: $0.planName, memberID: $0.memberID,
@@ -132,6 +171,9 @@ extension BackupArchive {
         for person in try context.fetch(FetchDescriptor<Person>()) { context.delete(person) }
         for provider in try context.fetch(FetchDescriptor<Provider>()) { context.delete(provider) }
         for policy in try context.fetch(FetchDescriptor<InsurancePolicy>()) { context.delete(policy) }
+        for pharmacy in try context.fetch(FetchDescriptor<Pharmacy>()) { context.delete(pharmacy) }
+        for contact in try context.fetch(FetchDescriptor<EmergencyContact>()) { context.delete(contact) }
+        for school in try context.fetch(FetchDescriptor<School>()) { context.delete(school) }
         try context.save()
 
         var peopleByID: [UUID: Person] = [:]
@@ -148,6 +190,10 @@ extension BackupArchive {
             person.notes = record.notes
             person.photoData = record.photo
             person.createdAt = record.createdAt
+            person.schoolGrade = record.schoolGrade ?? ""
+            person.teacherName = record.teacherName ?? ""
+            person.teacherEmail = record.teacherEmail ?? ""
+            person.teacherPhone = record.teacherPhone ?? ""
             peopleByID[record.id] = person
 
             for r in record.medications {
@@ -200,10 +246,11 @@ extension BackupArchive {
                 item.person = person
             }
             for r in record.emergencyContacts {
+                // Version 1 backups: each contact belonged to one person.
                 let item = EmergencyContact(name: r.name, relationship: r.relationship, phone: r.phone)
                 context.insert(item)
                 item.notes = r.notes
-                item.person = person
+                item.people = [person]
             }
         }
 
@@ -238,6 +285,36 @@ extension BackupArchive {
             policy.members = r.memberIDs.compactMap { peopleByID[$0] }
         }
 
+        for r in pharmacies ?? [] {
+            let pharmacy = Pharmacy(name: r.name, phone: r.phone, address: r.address)
+            context.insert(pharmacy)
+            pharmacy.notes = r.notes
+            pharmacy.latitude = r.latitude
+            pharmacy.longitude = r.longitude
+            pharmacy.patients = r.patientIDs.compactMap { peopleByID[$0] }
+        }
+
+        for r in schools ?? [] {
+            let school = School(name: r.name)
+            context.insert(school)
+            school.address = r.address
+            school.phone = r.phone
+            school.nurseName = r.nurseName
+            school.nursePhone = r.nursePhone
+            school.nurseEmail = r.nurseEmail
+            school.notes = r.notes
+            school.students = r.studentIDs.compactMap { peopleByID[$0] }
+        }
+
+        for r in contacts ?? [] {
+            let contact = EmergencyContact(name: r.name, relationship: r.relationship, phone: r.phone)
+            context.insert(contact)
+            contact.notes = r.notes
+            contact.people = r.personIDs.compactMap { peopleByID[$0] }
+        }
+
         try context.save()
+        // Turns a version 1 "preferred pharmacy" into a shared pharmacy.
+        try ModelStore.upgradeData(in: context)
     }
 }

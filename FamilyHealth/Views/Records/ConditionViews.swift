@@ -49,7 +49,7 @@ struct ConditionEditView: View {
                 Picker("Status", selection: $status) {
                     ForEach(ConditionStatus.allCases) { Text($0.label).tag($0) }
                 }
-                OptionalDatePicker(label: "Date diagnosed", date: $diagnosedDate)
+                DateField(label: "Date diagnosed", date: $diagnosedDate)
                 TextField("Treated by", text: $treatingProvider)
             }
             Section { NotesField(text: $notes) }

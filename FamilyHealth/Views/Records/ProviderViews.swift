@@ -1,5 +1,7 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
+import VisionKit
 
 /// The providers who see one family member. A provider can be shared, so
 /// swiping removes them from this person only.
@@ -58,6 +60,7 @@ struct ProviderRow: View {
 struct ProviderEditView: View {
     let provider: Provider?
     let defaultPatient: Person?
+    var onSaved: ((Provider) -> Void)?
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Person.sortOrder), SortDescriptor(\Person.name)]) private var people: [Person]
@@ -72,9 +75,36 @@ struct ProviderEditView: View {
     @State private var notes = ""
     @State private var patientIDs: Set<UUID> = []
     @State private var didLoad = false
+    @State private var isScanning = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var isReadingCard = false
+    @State private var scanNote: String?
 
     var body: some View {
         EditorForm(title: provider == nil ? "New provider" : "Edit provider", canSave: !name.isBlank, onSave: save) {
+            Section {
+                HStack(spacing: 20) {
+                    if VNDocumentCameraViewController.isSupported {
+                        Button {
+                            isScanning = true
+                        } label: {
+                            Label("Scan business card", systemImage: "person.text.rectangle")
+                        }
+                    }
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label("Photos", systemImage: "photo")
+                    }
+                }
+                .buttonStyle(.borderless)
+            } footer: {
+                if isReadingCard {
+                    Text("Reading the card…")
+                } else if let scanNote {
+                    Text(scanNote)
+                } else {
+                    Text("Got a business card? Scan it and the details below fill in. The card is read on this iPhone.")
+                }
+            }
             Section {
                 TextField("Name (e.g. Dr. Jane Rivera)", text: $name)
                     .textContentType(.name)
@@ -88,22 +118,28 @@ struct ProviderEditView: View {
                     .keyboardType(.phonePad)
                 TextField("Address", text: $address, axis: .vertical)
                     .textContentType(.fullStreetAddress)
-                TextField("Patient portal website", text: $portalURL)
+                TextField("Website or patient portal", text: $portalURL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
             Section("Sees") {
-                ForEach(people) { person in
-                    Toggle(person.displayName, isOn: Binding(
-                        get: { patientIDs.contains(person.id) },
-                        set: { isOn in
-                            if isOn { patientIDs.insert(person.id) } else { patientIDs.remove(person.id) }
-                        }
-                    ))
-                }
+                PeopleToggles(people: people, selection: $patientIDs)
             }
             Section { NotesField(text: $notes) }
+        }
+        .fullScreenCover(isPresented: $isScanning) {
+            DocumentScanner { image in
+                isScanning = false
+                if let data = image?.jpegData(compressionQuality: 0.9) { readCard(data) }
+            }
+            .ignoresSafeArea()
+        }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) { readCard(data) }
+            }
         }
         .onAppear {
             guard !didLoad else { return }
@@ -124,6 +160,36 @@ struct ProviderEditView: View {
         }
     }
 
+    /// Reads a business card on the phone and fills in any fields that are still empty.
+    private func readCard(_ photo: Data) {
+        isReadingCard = true
+        Task {
+            let found = BusinessCardParser.parse(await TextRecognizer.lines(in: photo))
+            var filled = 0
+            func fill(_ field: inout String, _ value: String) {
+                if field.isBlank && !value.isEmpty {
+                    field = value
+                    filled += 1
+                }
+            }
+            fill(&name, found.name)
+            fill(&specialty, found.specialty)
+            fill(&practice, found.practice)
+            fill(&phone, found.phone)
+            fill(&fax, found.fax)
+            fill(&address, found.address)
+            fill(&portalURL, found.website)
+            if !found.email.isEmpty && !notes.contains(found.email) {
+                notes = [notes.trimmed, "Email: \(found.email)"].filter { !$0.isEmpty }.joined(separator: "\n")
+                filled += 1
+            }
+            isReadingCard = false
+            scanNote = filled == 0
+                ? "Couldn't read details from this card. You can type them in below."
+                : "Filled in \(filled) field\(filled == 1 ? "" : "s") from the card. Please check them."
+        }
+    }
+
     private func save() {
         let target = provider ?? {
             let new = Provider(name: name.trimmed)
@@ -139,5 +205,6 @@ struct ProviderEditView: View {
         target.portalURL = portalURL.trimmed
         target.notes = notes.trimmed
         target.patients = people.filter { patientIDs.contains($0.id) }
+        onSaved?(target)
     }
 }

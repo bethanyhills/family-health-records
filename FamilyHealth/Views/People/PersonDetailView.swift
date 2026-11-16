@@ -7,8 +7,6 @@ struct PersonDetailView: View {
     @Environment(\.recordAccess) private var access
 
     @State private var isEditing = false
-    @State private var isAddingContact = false
-    @State private var contactToEdit: EmergencyContact?
 
     var body: some View {
         List {
@@ -59,10 +57,18 @@ struct PersonDetailView: View {
                 RecordLink("Providers", systemImage: "person.badge.shield.checkmark.fill", color: .green, count: person.providers.count) {
                     ProvidersView(person: person)
                 }
+                RecordLink("Pharmacies", systemImage: "cross.vial.fill", color: .mint, count: person.pharmacies.count) {
+                    PharmaciesView(person: person)
+                }
                 RecordLink("Insurance", systemImage: "creditcard.fill", color: .indigo, count: person.insurancePolicies.count) {
                     InsuranceView(person: person)
                 }
+                RecordLink("Emergency contacts", systemImage: "phone.fill", color: .pink, count: person.contacts.count) {
+                    EmergencyContactsView(person: person)
+                }
             }
+
+            SchoolSection(person: person)
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
@@ -70,37 +76,10 @@ struct PersonDetailView: View {
                 InfoRow("Blood type", person.bloodType == .unknown ? "" : person.bloodType.label)
                 InfoRow("Height", person.height)
                 InfoRow("Weight", person.weight)
-                InfoRow("Preferred pharmacy", person.preferredPharmacy)
                 if hasNoBasics {
-                    Text("No details yet. Tap Edit to add date of birth, blood type and more.")
+                    Text("No details yet. Tap Edit to add blood type, height and weight.")
                         .foregroundStyle(.secondary)
                 }
-            }
-
-            Section {
-                ForEach(sortedContacts) { contact in
-                    Button {
-                        if access.canEdit { contactToEdit = contact }
-                    } label: {
-                        EmergencyContactRow(contact: contact)
-                    }
-                    .foregroundStyle(.primary)
-                }
-                .onDelete { offsets in
-                    let contacts = sortedContacts
-                    for index in offsets { modelContext.delete(contacts[index]) }
-                }
-                .deleteDisabled(!access.canEdit)
-
-                if access.canEdit {
-                    Button {
-                        isAddingContact = true
-                    } label: {
-                        Label("Add emergency contact", systemImage: "plus.circle")
-                    }
-                }
-            } header: {
-                Text("Emergency contacts")
             }
 
             if !person.notes.isBlank {
@@ -119,12 +98,6 @@ struct PersonDetailView: View {
         }
         .sheet(isPresented: $isEditing) {
             NavigationStack { PersonEditView(person: person) }
-        }
-        .sheet(isPresented: $isAddingContact) {
-            NavigationStack { EmergencyContactEditView(person: person, contact: nil) }
-        }
-        .sheet(item: $contactToEdit) { contact in
-            NavigationStack { EmergencyContactEditView(person: person, contact: contact) }
         }
     }
 
@@ -149,36 +122,9 @@ struct PersonDetailView: View {
         }
     }
 
-    private var sortedContacts: [EmergencyContact] {
-        person.emergencyContacts.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
     private var hasNoBasics: Bool {
         person.dateOfBirth == nil && person.sex == .unspecified && person.bloodType == .unknown
-            && person.height.isBlank && person.weight.isBlank && person.preferredPharmacy.isBlank
-    }
-}
-
-struct EmergencyContactRow: View {
-    let contact: EmergencyContact
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(contact.name)
-                .font(.body.weight(.medium))
-            Text([contact.relationship, contact.phone].filter { !$0.isBlank }.joined(separator: " · "))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .contextMenu {
-            if !contact.phone.isBlank {
-                Button {
-                    UIPasteboard.general.string = contact.phone
-                } label: {
-                    Label("Copy phone number", systemImage: "doc.on.doc")
-                }
-            }
-        }
+            && person.height.isBlank && person.weight.isBlank
     }
 }
 

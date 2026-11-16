@@ -12,13 +12,11 @@ struct PersonEditView: View {
 
     @State private var name = ""
     @State private var preferredName = ""
-    @State private var hasDateOfBirth = false
-    @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -30, to: .now) ?? .now
+    @State private var dateOfBirth: Date?
     @State private var sex = Sex.unspecified
     @State private var bloodType = BloodType.unknown
     @State private var height = ""
     @State private var weight = ""
-    @State private var preferredPharmacy = ""
     @State private var notes = ""
     @State private var photoData: Data?
     @State private var photoItem: PhotosPickerItem?
@@ -47,28 +45,30 @@ struct PersonEditView: View {
             }
             .listRowBackground(Color.clear)
 
-            Section("Name") {
+            Section {
                 TextField("Full legal name", text: $name)
                     .textContentType(.name)
                     .textInputAutocapitalization(.words)
                 TextField("Preferred name (optional)", text: $preferredName)
                     .textInputAutocapitalization(.words)
+                DateField(label: "Date of birth", date: $dateOfBirth, allowsFuture: false, isRequired: true)
+            } header: {
+                Text("Name and birthday")
+            } footer: {
+                if !canSave {
+                    Text("A name and date of birth are needed to save.")
+                }
             }
 
             Section("Details") {
-                Toggle("Date of birth", isOn: $hasDateOfBirth.animation())
-                if hasDateOfBirth {
-                    DatePicker("Born", selection: $dateOfBirth, in: ...Date.now, displayedComponents: .date)
-                }
                 Picker("Sex", selection: $sex) {
                     ForEach(Sex.allCases) { Text($0.label).tag($0) }
                 }
                 Picker("Blood type", selection: $bloodType) {
                     ForEach(BloodType.allCases) { Text($0.label).tag($0) }
                 }
-                TextField("Height (e.g. 5 ft 4 in)", text: $height)
-                TextField("Weight (e.g. 130 lb)", text: $weight)
-                TextField("Preferred pharmacy", text: $preferredPharmacy)
+                HeightField(text: $height)
+                WeightField(text: $weight)
             }
 
             Section("Notes") {
@@ -76,6 +76,7 @@ struct PersonEditView: View {
                     .lineLimit(3...8)
             }
         }
+        .autocorrectionDisabled()
         .navigationTitle(person == nil ? "New family member" : "Edit")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -84,7 +85,7 @@ struct PersonEditView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save() }
-                    .disabled(name.isBlank)
+                    .disabled(!canSave)
             }
         }
         .onAppear(perform: load)
@@ -98,6 +99,8 @@ struct PersonEditView: View {
         }
     }
 
+    private var canSave: Bool { !name.isBlank && dateOfBirth != nil }
+
     private var initials: String {
         name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
     }
@@ -108,15 +111,11 @@ struct PersonEditView: View {
         guard let person else { return }
         name = person.name
         preferredName = person.preferredName
-        if let dob = person.dateOfBirth {
-            hasDateOfBirth = true
-            dateOfBirth = dob
-        }
+        dateOfBirth = person.dateOfBirth
         sex = person.sex
         bloodType = person.bloodType
         height = person.height
         weight = person.weight
-        preferredPharmacy = person.preferredPharmacy
         notes = person.notes
         photoData = person.photoData
     }
@@ -131,79 +130,13 @@ struct PersonEditView: View {
         }
         target.name = name.trimmed
         target.preferredName = preferredName.trimmed
-        target.dateOfBirth = hasDateOfBirth ? dateOfBirth : nil
+        target.dateOfBirth = dateOfBirth
         target.sex = sex
         target.bloodType = bloodType
-        target.height = height.trimmed
-        target.weight = weight.trimmed
-        target.preferredPharmacy = preferredPharmacy.trimmed
+        target.height = height
+        target.weight = weight
         target.notes = notes.trimmed
         target.photoData = photoData
-        dismiss()
-    }
-}
-
-struct EmergencyContactEditView: View {
-    let person: Person
-    let contact: EmergencyContact?
-
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var relationship = ""
-    @State private var phone = ""
-    @State private var notes = ""
-    @State private var didLoad = false
-
-    var body: some View {
-        Form {
-            TextField("Name", text: $name)
-                .textContentType(.name)
-                .textInputAutocapitalization(.words)
-            TextField("Relationship (e.g. Spouse)", text: $relationship)
-                .textInputAutocapitalization(.words)
-            TextField("Phone", text: $phone)
-                .textContentType(.telephoneNumber)
-                .keyboardType(.phonePad)
-            TextField("Notes", text: $notes, axis: .vertical)
-        }
-        .navigationTitle(contact == nil ? "New contact" : "Edit contact")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
-                    .disabled(name.isBlank)
-            }
-        }
-        .onAppear {
-            guard !didLoad else { return }
-            didLoad = true
-            if let contact {
-                name = contact.name
-                relationship = contact.relationship
-                phone = contact.phone
-                notes = contact.notes
-            }
-        }
-    }
-
-    private func save() {
-        let target: EmergencyContact
-        if let contact {
-            target = contact
-        } else {
-            target = EmergencyContact(name: name.trimmed)
-            modelContext.insert(target)
-            target.person = person
-        }
-        target.name = name.trimmed
-        target.relationship = relationship.trimmed
-        target.phone = phone.trimmed
-        target.notes = notes.trimmed
         dismiss()
     }
 }

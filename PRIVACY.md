@@ -18,9 +18,13 @@ Family Health Binder does not sync records to iCloud. Like other app data, recor
 
 Records leave your device only when you choose to share them, for example by exporting a PDF summary or a backup file and sending it with AirDrop, Mail or Files. You decide where those go.
 
+## Pharmacy search
+
+When you search for a pharmacy, the text you type (for example "CVS Naperville") is sent to Apple Maps to find matching stores. It is not linked to you or to any health information, and we never receive it.
+
 ## Camera and photos
 
-The app asks to use the camera or your photo library only so you can attach pictures, such as insurance cards. Pictures stay on your device.
+The app asks to use the camera or your photo library only so you can attach pictures, such as insurance cards. Pictures stay on your device. When you scan an insurance card, the text on it is read on your device using Apple's built-in text recognition; the picture is not uploaded anywhere.
 
 ## Purchases
 

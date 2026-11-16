@@ -131,7 +131,10 @@ final class EmergencyContact {
     var relationship: String = ""
     var phone: String = ""
     var notes: String = ""
+    /// 1.0 owner; cleared by `ModelStore.upgradeData` once moved into `people`.
     var person: Person?
+    /// The family members this person is an emergency contact for (1.1).
+    var people: [Person] = []
 
     init(name: String, relationship: String = "", phone: String = "") {
         self.name = name
@@ -188,5 +191,42 @@ final class InsurancePolicy {
     var kind: InsuranceKind {
         get { InsuranceKind(rawValue: kindRaw) ?? .other }
         set { kindRaw = newValue.rawValue }
+    }
+}
+
+/// A pharmacy. Usually shared by the whole family.
+@Model
+final class Pharmacy {
+    var id: UUID = UUID()
+    var name: String = ""
+    var phone: String = ""
+    var address: String = ""
+    var latitude: Double?
+    var longitude: Double?
+    var notes: String = ""
+    var patients: [Person] = []
+
+    init(name: String, phone: String = "", address: String = "") {
+        self.name = name
+        self.phone = phone
+        self.address = address
+    }
+}
+
+/// A school, shared by siblings. Each child's grade and teacher live on `Person`.
+@Model
+final class School {
+    var id: UUID = UUID()
+    var name: String = ""
+    var address: String = ""
+    var phone: String = ""
+    var nurseName: String = ""
+    var nursePhone: String = ""
+    var nurseEmail: String = ""
+    var notes: String = ""
+    var students: [Person] = []
+
+    init(name: String) {
+        self.name = name
     }
 }

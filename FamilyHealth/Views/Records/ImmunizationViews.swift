@@ -40,7 +40,7 @@ struct ImmunizationEditView: View {
         EditorForm(title: immunization == nil ? "New immunization" : "Edit immunization", canSave: !vaccine.isBlank, onSave: save) {
             Section {
                 TextField("Vaccine (e.g. Tdap)", text: $vaccine)
-                OptionalDatePicker(label: "Date given", date: $date)
+                DateField(label: "Date given", date: $date)
                 TextField("Dose number (e.g. 2 of 3)", text: $doseNumber)
                 TextField("Where given", text: $location)
                 TextField("Lot number", text: $lotNumber)
