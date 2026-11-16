@@ -133,8 +133,8 @@ final class FeedbackRoundOneTests: XCTestCase {
             "Naperville, IL 60540",
             "Office: (630) 555-0101",
             "Fax: (630) 555-0102",
-            "jsmith@littlesteps.example",
-            "www.littlesteps.example",
+            "jsmith@littlestepstherapy.com",
+            "www.littlestepstherapy.com",
         ]
         let result = BusinessCardParser.parse(lines)
         XCTAssertEqual(result.name, "Jane Smith, MS, OTR/L")
@@ -142,8 +142,8 @@ final class FeedbackRoundOneTests: XCTestCase {
         XCTAssertEqual(result.practice, "Little Steps Pediatric Therapy")
         XCTAssertEqual(result.phone, "(630) 555-0101")
         XCTAssertEqual(result.fax, "(630) 555-0102")
-        XCTAssertEqual(result.email, "jsmith@littlesteps.example")
-        XCTAssertTrue(result.website.contains("littlesteps.example"))
+        XCTAssertEqual(result.email, "jsmith@littlestepstherapy.com")
+        XCTAssertTrue(result.website.contains("littlestepstherapy.com"))
         XCTAssertTrue(result.address.contains("1200 Main Street"), result.address)
     }
 
