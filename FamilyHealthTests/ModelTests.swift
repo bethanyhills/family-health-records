@@ -94,6 +94,30 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Provider>()), 1, "Still the kid's doctor")
     }
 
+    func testFamilyHistoryCopiesToOthersWithoutDuplicates() throws {
+        let context = makeContext()
+        let mom = Person(name: "Mom Example")
+        let kid = Person(name: "Kid Example")
+        let sib = Person(name: "Sib Example")
+        [mom, kid, sib].forEach { context.insert($0) }
+        let existing = FamilyHistoryItem(relative: "maternal grandmother", condition: "type 2 diabetes")
+        context.insert(existing)
+        existing.person = sib
+
+        let item = FamilyHistoryItem(relative: "Maternal grandmother", condition: "Type 2 diabetes")
+        item.notes = "Diagnosed at 50"
+        context.insert(item)
+        item.person = kid
+        item.copy(to: [mom, sib], in: context)
+        try context.save()
+
+        XCTAssertEqual(mom.familyHistory.map(\.condition), ["Type 2 diabetes"])
+        XCTAssertEqual(mom.familyHistory.first?.notes, "Diagnosed at 50")
+        XCTAssertNotEqual(mom.familyHistory.first?.id, item.id, "Each person gets their own copy")
+        XCTAssertEqual(sib.familyHistory.count, 1, "Sib already had it")
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<FamilyHistoryItem>()), 3)
+    }
+
     func testAgeCountsWholeYears() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "UTC"))
