@@ -121,4 +121,37 @@ final class FeedbackRoundOneTests: XCTestCase {
         XCTAssertEqual(people[1].pharmacies.first?.id, kid.pharmacies.first?.id)
         XCTAssertEqual(kid.preferredPharmacy, "")
     }
+
+    // MARK: Business card
+
+    func testBusinessCardParserReadsTherapistCard() {
+        let lines = [
+            "Little Steps Pediatric Therapy",
+            "Jane Smith, MS, OTR/L",
+            "Pediatric Occupational Therapist",
+            "1200 Main Street, Suite 4",
+            "Naperville, IL 60540",
+            "Office: (630) 555-0101",
+            "Fax: (630) 555-0102",
+            "jsmith@littlesteps.example",
+            "www.littlesteps.example",
+        ]
+        let result = BusinessCardParser.parse(lines)
+        XCTAssertEqual(result.name, "Jane Smith, MS, OTR/L")
+        XCTAssertEqual(result.specialty, "Pediatric Occupational Therapist")
+        XCTAssertEqual(result.practice, "Little Steps Pediatric Therapy")
+        XCTAssertEqual(result.phone, "(630) 555-0101")
+        XCTAssertEqual(result.fax, "(630) 555-0102")
+        XCTAssertEqual(result.email, "jsmith@littlesteps.example")
+        XCTAssertTrue(result.website.contains("littlesteps.example"))
+        XCTAssertTrue(result.address.contains("1200 Main Street"), result.address)
+    }
+
+    func testBusinessCardParserUsesCredentialForSpecialtyWhenNoTitle() {
+        let result = BusinessCardParser.parse(["Bright Voices Speech Clinic", "Alex Rivera, CCC-SLP", "555-201-3344"])
+        XCTAssertEqual(result.name, "Alex Rivera, CCC-SLP")
+        XCTAssertEqual(result.specialty, "Speech therapy")
+        XCTAssertEqual(result.practice, "Bright Voices Speech Clinic")
+        XCTAssertEqual(result.phone, "555-201-3344")
+    }
 }

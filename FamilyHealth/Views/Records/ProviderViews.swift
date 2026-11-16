@@ -1,5 +1,7 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
+import VisionKit
 
 /// The providers who see one family member. A provider can be shared, so
 /// swiping removes them from this person only.
@@ -73,9 +75,36 @@ struct ProviderEditView: View {
     @State private var notes = ""
     @State private var patientIDs: Set<UUID> = []
     @State private var didLoad = false
+    @State private var isScanning = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var isReadingCard = false
+    @State private var scanNote: String?
 
     var body: some View {
         EditorForm(title: provider == nil ? "New provider" : "Edit provider", canSave: !name.isBlank, onSave: save) {
+            Section {
+                HStack(spacing: 20) {
+                    if VNDocumentCameraViewController.isSupported {
+                        Button {
+                            isScanning = true
+                        } label: {
+                            Label("Scan business card", systemImage: "person.text.rectangle")
+                        }
+                    }
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label("Photos", systemImage: "photo")
+                    }
+                }
+                .buttonStyle(.borderless)
+            } footer: {
+                if isReadingCard {
+                    Text("Reading the card…")
+                } else if let scanNote {
+                    Text(scanNote)
+                } else {
+                    Text("Got a business card? Scan it and the details below fill in. The card is read on this iPhone.")
+                }
+            }
             Section {
                 TextField("Name (e.g. Dr. Jane Rivera)", text: $name)
                     .textContentType(.name)
@@ -89,7 +118,7 @@ struct ProviderEditView: View {
                     .keyboardType(.phonePad)
                 TextField("Address", text: $address, axis: .vertical)
                     .textContentType(.fullStreetAddress)
-                TextField("Patient portal website", text: $portalURL)
+                TextField("Website or patient portal", text: $portalURL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -98,6 +127,19 @@ struct ProviderEditView: View {
                 PeopleToggles(people: people, selection: $patientIDs)
             }
             Section { NotesField(text: $notes) }
+        }
+        .fullScreenCover(isPresented: $isScanning) {
+            DocumentScanner { image in
+                isScanning = false
+                if let data = image?.jpegData(compressionQuality: 0.9) { readCard(data) }
+            }
+            .ignoresSafeArea()
+        }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) { readCard(data) }
+            }
         }
         .onAppear {
             guard !didLoad else { return }
@@ -115,6 +157,36 @@ struct ProviderEditView: View {
             } else if let defaultPatient {
                 patientIDs = [defaultPatient.id]
             }
+        }
+    }
+
+    /// Reads a business card on the phone and fills in any fields that are still empty.
+    private func readCard(_ photo: Data) {
+        isReadingCard = true
+        Task {
+            let found = BusinessCardParser.parse(await TextRecognizer.lines(in: photo))
+            var filled = 0
+            func fill(_ field: inout String, _ value: String) {
+                if field.isBlank && !value.isEmpty {
+                    field = value
+                    filled += 1
+                }
+            }
+            fill(&name, found.name)
+            fill(&specialty, found.specialty)
+            fill(&practice, found.practice)
+            fill(&phone, found.phone)
+            fill(&fax, found.fax)
+            fill(&address, found.address)
+            fill(&portalURL, found.website)
+            if !found.email.isEmpty && !notes.contains(found.email) {
+                notes = [notes.trimmed, "Email: \(found.email)"].filter { !$0.isEmpty }.joined(separator: "\n")
+                filled += 1
+            }
+            isReadingCard = false
+            scanNote = filled == 0
+                ? "Couldn't read details from this card. You can type them in below."
+                : "Filled in \(filled) field\(filled == 1 ? "" : "s") from the card. Please check them."
         }
     }
 
