@@ -1,0 +1,193 @@
+import SwiftData
+import SwiftUI
+
+struct RecordSection<Item: PersistentModel>: Identifiable {
+    let id: String
+    let title: String?
+    let items: [Item]
+
+    init(_ title: String? = nil, _ items: [Item]) {
+        self.id = title ?? "all"
+        self.title = title
+        self.items = items
+    }
+}
+
+/// Shared list screen for one kind of record: sections of rows, swipe to delete,
+/// tap to edit, and a + button that opens a blank editor.
+struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
+    let title: String
+    let emptyTitle: String
+    let emptyMessage: String
+    let systemImage: String
+    let sections: [RecordSection<Item>]
+    @ViewBuilder let row: (Item) -> Row
+    @ViewBuilder let editor: (Item?) -> Editor
+    /// Called instead of deleting the item, e.g. to unlink a shared provider.
+    var onRemove: ((Item) -> Void)?
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.recordAccess) private var access
+    @State private var isAdding = false
+    @State private var editing: Item?
+
+    var body: some View {
+        List {
+            ForEach(sections.filter { !$0.items.isEmpty }) { section in
+                Section {
+                    ForEach(section.items) { item in
+                        Button {
+                            if access.canEdit { editing = item }
+                        } label: {
+                            row(item)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .onDelete { offsets in
+                        for index in offsets {
+                            let item = section.items[index]
+                            if let onRemove {
+                                onRemove(item)
+                            } else {
+                                modelContext.delete(item)
+                            }
+                        }
+                    }
+                    .deleteDisabled(!access.canEdit)
+                } header: {
+                    if let title = section.title { Text(title) }
+                }
+            }
+        }
+        .overlay {
+            if sections.allSatisfy({ $0.items.isEmpty }) {
+                ContentUnavailableView {
+                    Label(emptyTitle, systemImage: systemImage)
+                } description: {
+                    Text(emptyMessage)
+                } actions: {
+                    if access.canEdit {
+                        Button("Add") { isAdding = true }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+        }
+        .navigationTitle(title)
+        .toolbar {
+            if access.canEdit {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isAdding = true
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $isAdding) {
+            NavigationStack { editor(nil) }
+        }
+        .sheet(item: $editing) { item in
+            NavigationStack { editor(item) }
+        }
+    }
+}
+
+/// Two-line row: a bold title and a muted detail line built from the non-empty parts.
+struct RecordRow: View {
+    let title: String
+    let details: [String]
+    var badge: String?
+    var badgeColor: Color = .accentColor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                if let badge {
+                    Text(badge)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(badgeColor.opacity(0.15), in: Capsule())
+                        .foregroundStyle(badgeColor)
+                }
+            }
+            let line = details.filter { !$0.isBlank }.joined(separator: " · ")
+            if !line.isEmpty {
+                Text(line)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+        .contextMenu {
+            Button {
+                UIPasteboard.general.string = ([title] + details.filter { !$0.isBlank }).joined(separator: ", ")
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+        }
+    }
+}
+
+/// Form wrapper with Cancel and Save buttons.
+struct EditorForm<Content: View>: View {
+    let title: String
+    let canSave: Bool
+    let onSave: () -> Void
+    @ViewBuilder let content: Content
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Form { content }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave()
+                        dismiss()
+                    }
+                    .disabled(!canSave)
+                }
+            }
+    }
+}
+
+/// A toggle that reveals a date picker; `nil` when the date isn't known.
+struct OptionalDatePicker: View {
+    let label: String
+    @Binding var date: Date?
+
+    var body: some View {
+        Toggle(label, isOn: Binding(
+            get: { date != nil },
+            set: { date = $0 ? (date ?? .now) : nil }
+        ).animation())
+        if let current = date {
+            DatePicker(
+                "Date",
+                selection: Binding(get: { current }, set: { date = $0 }),
+                displayedComponents: .date
+            )
+        }
+    }
+}
+
+struct NotesField: View {
+    @Binding var text: String
+
+    var body: some View {
+        TextField("Notes", text: $text, axis: .vertical)
+            .lineLimit(2...6)
+    }
+}
