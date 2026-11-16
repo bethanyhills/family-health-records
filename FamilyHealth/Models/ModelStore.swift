@@ -73,7 +73,10 @@ enum ModelStore {
     /// Data fix-ups that run after the database opens. Each step is safe to repeat.
     static func upgradeData(in context: ModelContext) throws {
         // 1.1: the old free-text "preferred pharmacy" becomes a shared Pharmacy.
-        let people = try context.fetch(FetchDescriptor<Person>())
+        // In family order, so the first person's spelling of a shared pharmacy name wins every time.
+        let people = try context.fetch(FetchDescriptor<Person>(sortBy: [
+            SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt), SortDescriptor(\.name),
+        ]))
         var pharmaciesByName = Dictionary(
             try context.fetch(FetchDescriptor<Pharmacy>()).map { ($0.name.lowercased(), $0) },
             uniquingKeysWith: { first, _ in first }
