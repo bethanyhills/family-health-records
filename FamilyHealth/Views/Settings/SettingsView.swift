@@ -22,6 +22,8 @@ struct SettingsView: View {
                     Text("Asks for \(AppLock.biometryName) or your passcode every time Family Health Binder opens.")
                 }
 
+                BackupSection()
+
                 Section("Privacy") {
                     Label("Your records are stored only on this iPhone.", systemImage: "iphone")
                     Label("Nothing is sent to a server, and there's no account, tracking or advertising.", systemImage: "hand.raised.fill")

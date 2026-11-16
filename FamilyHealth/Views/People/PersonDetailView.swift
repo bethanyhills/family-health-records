@@ -14,6 +14,26 @@ struct PersonDetailView: View {
         List {
             header
 
+            Section {
+                NavigationLink {
+                    IntakeSummaryView(person: person)
+                } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Intake summary")
+                                .font(.headline)
+                            Text("Everything a new doctor's form asks, ready to copy or share as a PDF")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "list.clipboard.fill")
+                            .foregroundStyle(.tint)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section("Health records") {
                 RecordLink("Medications", systemImage: "pills.fill", color: .blue, count: person.medications.filter(\.isActive).count) {
                     MedicationsView(person: person)

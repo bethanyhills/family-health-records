@@ -276,7 +276,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Family Health Binder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Health Binder";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Family Health Binder uses the camera to photograph insurance cards and medical documents. Photos stay on this iPhone.";
@@ -309,7 +309,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Family Health Binder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Health Binder";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Family Health Binder uses the camera to photograph insurance cards and medical documents. Photos stay on this iPhone.";
