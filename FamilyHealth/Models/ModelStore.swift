@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-/// Version 1.1: adds shared pharmacies, shared emergency contacts and schools. Uses the live model classes.
-enum SchemaV2: VersionedSchema {
-    static let versionIdentifier = Schema.Version(1, 1, 0)
+/// Version 1.2: adds therapies. Uses the live model classes.
+enum SchemaV3: VersionedSchema {
+    static let versionIdentifier = Schema.Version(1, 2, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -19,6 +19,7 @@ enum SchemaV2: VersionedSchema {
             InsurancePolicy.self,
             Pharmacy.self,
             School.self,
+            Therapy.self,
         ]
     }
 }
@@ -26,10 +27,13 @@ enum SchemaV2: VersionedSchema {
 /// When a model changes: freeze the current schema like `SchemaV1`, add a new
 /// version with the live classes, and add a stage below.
 enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self] }
+    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self, SchemaV3.self] }
 
     static var stages: [MigrationStage] {
-        [.lightweight(fromVersion: SchemaV1.self, toVersion: SchemaV2.self)]
+        [
+            .lightweight(fromVersion: SchemaV1.self, toVersion: SchemaV2.self),
+            .lightweight(fromVersion: SchemaV2.self, toVersion: SchemaV3.self),
+        ]
     }
 }
 

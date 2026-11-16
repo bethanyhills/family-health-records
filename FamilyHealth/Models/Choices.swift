@@ -84,3 +84,19 @@ enum InsuranceKind: String, PickerChoice {
         }
     }
 }
+
+enum TherapyKind: String, PickerChoice {
+    case occupational, speech, aba, physical, feeding, counseling, other
+
+    var label: String {
+        switch self {
+        case .occupational: "Occupational therapy (OT)"
+        case .speech: "Speech therapy"
+        case .aba: "ABA therapy"
+        case .physical: "Physical therapy (PT)"
+        case .feeding: "Feeding therapy"
+        case .counseling: "Counseling"
+        case .other: "Other"
+        }
+    }
+}

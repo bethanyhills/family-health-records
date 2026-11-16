@@ -35,6 +35,8 @@ final class Person {
     var immunizations: [Immunization] = []
     @Relationship(deleteRule: .cascade, inverse: \FamilyHistoryItem.person)
     var familyHistory: [FamilyHistoryItem] = []
+    @Relationship(deleteRule: .cascade, inverse: \Therapy.person)
+    var therapies: [Therapy] = []
     /// 1.0 per-person contacts. Moved into `contacts` by `ModelStore.upgradeData`; not used by the UI.
     @Relationship(deleteRule: .cascade, inverse: \EmergencyContact.person)
     var emergencyContacts: [EmergencyContact] = []

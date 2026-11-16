@@ -39,6 +39,7 @@ enum IntakeSummary {
             medications(person),
             conditions(person, current: true),
             conditions(person, current: false),
+            therapies(person),
             procedures(person),
             immunizations(person),
             familyHistory(person),
@@ -49,7 +50,7 @@ enum IntakeSummary {
             school(person),
         ]
         // Hide empty sections that many people won't have.
-        .filter { !$0.items.isEmpty || !["Past conditions", "School"].contains($0.title) }
+        .filter { !$0.items.isEmpty || !["Past conditions", "Current therapies", "School"].contains($0.title) }
     }
 
     /// Plain text for pasting into an email or a web form's free-text box.
@@ -120,6 +121,23 @@ enum IntakeSummary {
                 )
             }
         return SummarySection(title: current ? "Medical conditions" : "Past conditions", items: items)
+    }
+
+    private static func therapies(_ person: Person) -> SummarySection {
+        let items = person.therapies
+            .filter(\.isActive)
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            .map { therapy in
+                SummaryItem(
+                    label: therapy.displayName,
+                    value: [
+                        therapy.provider.map { [$0.name, $0.practice, $0.phone].joined(", ") } ?? "",
+                        therapy.frequency,
+                        therapy.startDate.map { "since \($0.formDate)" } ?? "",
+                    ].joined("; ")
+                )
+            }
+        return SummarySection(title: "Current therapies", items: items)
     }
 
     private static func procedures(_ person: Person) -> SummarySection {

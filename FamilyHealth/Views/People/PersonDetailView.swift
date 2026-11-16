@@ -43,6 +43,9 @@ struct PersonDetailView: View {
                 RecordLink("Conditions", systemImage: "stethoscope", color: .purple, count: person.conditions.filter { $0.status != .resolved }.count) {
                     ConditionsView(person: person)
                 }
+                RecordLink("Therapies", systemImage: "figure.play", color: .pink, count: person.therapies.filter(\.isActive).count) {
+                    TherapiesView(person: person)
+                }
                 RecordLink("Surgeries & procedures", systemImage: "cross.case.fill", color: .orange, count: person.procedures.count) {
                     ProceduresView(person: person)
                 }
