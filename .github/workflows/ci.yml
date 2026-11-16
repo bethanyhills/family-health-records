@@ -41,5 +41,23 @@ jobs:
             -project FamilyHealth.xcodeproj \
             -scheme FamilyHealth \
             -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             | if command -v xcbeautify >/dev/null; then xcbeautify --renderer github-actions; else cat; fi
+
+      - name: Show why tests failed
+        if: failure()
+        run: |
+          xcrun xcresulttool get test-results tests --path TestResults.xcresult \
+            | python3 -c '
+          import json, sys
+          def walk(node, path=""):
+              name = node.get("name", "")
+              if node.get("result") == "Failed" and node.get("nodeType") in ("Failure Message", "Test Case", "Runtime Warning"):
+                  print(node.get("nodeType"), "|", path, "|", name)
+              for child in node.get("children", []):
+                  walk(child, path + "/" + name)
+          for root in json.load(sys.stdin).get("testNodes", []):
+              walk(root)
+          ' || true
+          find ~/Library/Logs/DiagnosticReports -name "FamilyHealth*" -mmin -60 -exec head -80 {} \; 2>/dev/null || true
