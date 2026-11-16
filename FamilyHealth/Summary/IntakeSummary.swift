@@ -46,8 +46,10 @@ enum IntakeSummary {
             pharmacies(person),
             insurance(person),
             emergencyContacts(person),
+            school(person),
         ]
-        .filter { !$0.items.isEmpty || $0.title != "Past conditions" }
+        // Hide empty sections that many people won't have.
+        .filter { !$0.items.isEmpty || !["Past conditions", "School"].contains($0.title) }
     }
 
     /// Plain text for pasting into an email or a web form's free-text box.
@@ -184,6 +186,19 @@ enum IntakeSummary {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             .map { SummaryItem(label: $0.name, value: [$0.relationship, $0.phone].joined(", ")) }
         return SummarySection(title: "Emergency contacts", items: items)
+    }
+
+    private static func school(_ person: Person) -> SummarySection {
+        var items: [SummaryItem] = []
+        add(&items, "School", person.school?.name ?? "")
+        add(&items, "Grade", person.schoolGrade)
+        add(&items, "Teacher", [person.teacherName, person.teacherEmail, person.teacherPhone].joined(", "))
+        if let school = person.school {
+            add(&items, "School phone", school.phone)
+            add(&items, "School address", school.address)
+            add(&items, "School nurse", [school.nurseName, school.nursePhone, school.nurseEmail].joined(", "))
+        }
+        return SummarySection(title: "School", items: items)
     }
 
     private static func add(_ items: inout [SummaryItem], _ label: String, _ value: String) {

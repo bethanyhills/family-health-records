@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Version 1.1: adds shared pharmacies. Uses the live model classes.
+/// Version 1.1: adds shared pharmacies, shared emergency contacts and schools. Uses the live model classes.
 enum SchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 1, 0)
 
@@ -18,6 +18,7 @@ enum SchemaV2: VersionedSchema {
             Provider.self,
             InsurancePolicy.self,
             Pharmacy.self,
+            School.self,
         ]
     }
 }

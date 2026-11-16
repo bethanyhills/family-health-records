@@ -68,6 +68,8 @@ struct PersonDetailView: View {
                 }
             }
 
+            SchoolSection(person: person)
+
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
                 InfoRow("Sex", person.sex == .unspecified ? "" : person.sex.label)

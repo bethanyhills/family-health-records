@@ -14,6 +14,11 @@ final class Person {
     /// Replaced by `pharmacies` in 1.1; moved over by `ModelStore.upgradeData`.
     var preferredPharmacy: String = ""
     var notes: String = ""
+    /// School year details for this child (1.1). The school itself is shared.
+    var schoolGrade: String = ""
+    var teacherName: String = ""
+    var teacherEmail: String = ""
+    var teacherPhone: String = ""
     @Attribute(.externalStorage) var photoData: Data?
     var sortOrder: Int = 0
     var createdAt: Date = Date()
@@ -41,6 +46,8 @@ final class Person {
     var insurancePolicies: [InsurancePolicy] = []
     @Relationship(inverse: \Pharmacy.patients)
     var pharmacies: [Pharmacy] = []
+    @Relationship(inverse: \School.students)
+    var schools: [School] = []
     /// Emergency contacts, shared across family members (1.1).
     @Relationship(inverse: \EmergencyContact.people)
     var contacts: [EmergencyContact] = []
@@ -59,6 +66,12 @@ final class Person {
     var bloodType: BloodType {
         get { BloodType(rawValue: bloodTypeRaw) ?? .unknown }
         set { bloodTypeRaw = newValue.rawValue }
+    }
+
+    var school: School? { schools.first }
+
+    var hasSchoolInfo: Bool {
+        school != nil || !schoolGrade.isBlank || !teacherName.isBlank
     }
 
     var displayName: String {

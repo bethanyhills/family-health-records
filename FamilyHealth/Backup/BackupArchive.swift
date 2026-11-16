@@ -14,6 +14,8 @@ struct BackupArchive: Codable, Equatable {
     var pharmacies: [PharmacyRecord]? = []
     /// Added in version 2. Version 1 kept contacts inside each person.
     var contacts: [ContactRecord]? = []
+    /// Added in version 2.
+    var schools: [SchoolRecord]? = []
 
     struct PersonRecord: Codable, Equatable {
         var id: UUID
@@ -31,6 +33,13 @@ struct BackupArchive: Codable, Equatable {
         var familyHistory: [FamilyHistoryRecord]
         /// Version 1 only; version 2 uses the shared `contacts` list.
         var emergencyContacts: [EmergencyContactRecord]
+        /// Added in version 2.
+        var schoolGrade, teacherName, teacherEmail, teacherPhone: String?
+    }
+
+    struct SchoolRecord: Codable, Equatable {
+        var name, address, phone, nurseName, nursePhone, nurseEmail, notes: String
+        var studentIDs: [UUID]
     }
 
     struct PharmacyRecord: Codable, Equatable {
@@ -124,7 +133,9 @@ extension BackupArchive {
                 familyHistory: p.familyHistory.sorted { ($0.condition, $0.relative) < ($1.condition, $1.relative) }.map {
                     FamilyHistoryRecord(relative: $0.relative, condition: $0.condition, notes: $0.notes)
                 },
-                emergencyContacts: []
+                emergencyContacts: [],
+                schoolGrade: p.schoolGrade, teacherName: p.teacherName,
+                teacherEmail: p.teacherEmail, teacherPhone: p.teacherPhone
             )
         }
         providers = try context.fetch(FetchDescriptor<Provider>(sortBy: [SortDescriptor(\.name)])).map {
@@ -136,6 +147,11 @@ extension BackupArchive {
             PharmacyRecord(name: $0.name, phone: $0.phone, address: $0.address, notes: $0.notes,
                            latitude: $0.latitude, longitude: $0.longitude,
                            patientIDs: $0.patients.map(\.id).sorted { $0.uuidString < $1.uuidString })
+        }
+        schools = try context.fetch(FetchDescriptor<School>(sortBy: [SortDescriptor(\.name)])).map {
+            SchoolRecord(name: $0.name, address: $0.address, phone: $0.phone, nurseName: $0.nurseName,
+                         nursePhone: $0.nursePhone, nurseEmail: $0.nurseEmail, notes: $0.notes,
+                         studentIDs: $0.students.map(\.id).sorted { $0.uuidString < $1.uuidString })
         }
         contacts = try context.fetch(FetchDescriptor<EmergencyContact>(sortBy: [SortDescriptor(\.name)])).map {
             ContactRecord(name: $0.name, relationship: $0.relationship, phone: $0.phone, notes: $0.notes,
@@ -157,6 +173,7 @@ extension BackupArchive {
         for policy in try context.fetch(FetchDescriptor<InsurancePolicy>()) { context.delete(policy) }
         for pharmacy in try context.fetch(FetchDescriptor<Pharmacy>()) { context.delete(pharmacy) }
         for contact in try context.fetch(FetchDescriptor<EmergencyContact>()) { context.delete(contact) }
+        for school in try context.fetch(FetchDescriptor<School>()) { context.delete(school) }
         try context.save()
 
         var peopleByID: [UUID: Person] = [:]
@@ -173,6 +190,10 @@ extension BackupArchive {
             person.notes = record.notes
             person.photoData = record.photo
             person.createdAt = record.createdAt
+            person.schoolGrade = record.schoolGrade ?? ""
+            person.teacherName = record.teacherName ?? ""
+            person.teacherEmail = record.teacherEmail ?? ""
+            person.teacherPhone = record.teacherPhone ?? ""
             peopleByID[record.id] = person
 
             for r in record.medications {
@@ -271,6 +292,18 @@ extension BackupArchive {
             pharmacy.latitude = r.latitude
             pharmacy.longitude = r.longitude
             pharmacy.patients = r.patientIDs.compactMap { peopleByID[$0] }
+        }
+
+        for r in schools ?? [] {
+            let school = School(name: r.name)
+            context.insert(school)
+            school.address = r.address
+            school.phone = r.phone
+            school.nurseName = r.nurseName
+            school.nursePhone = r.nursePhone
+            school.nurseEmail = r.nurseEmail
+            school.notes = r.notes
+            school.students = r.studentIDs.compactMap { peopleByID[$0] }
         }
 
         for r in contacts ?? [] {

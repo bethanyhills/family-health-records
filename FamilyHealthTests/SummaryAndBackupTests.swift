@@ -36,6 +36,14 @@ final class SummaryAndBackupTests: XCTestCase {
         context.insert(pharmacy)
         pharmacy.patients = [parent, child]
 
+        let school = School(name: "Maple Elementary")
+        context.insert(school)
+        school.nurseName = "Nurse Lee"
+        school.nursePhone = "555-0177"
+        school.students = [child]
+        child.schoolGrade = "3rd"
+        child.teacherName = "Ms. Park"
+
         let provider = Provider(name: "Dr. Rivera", specialty: "Pediatrics")
         context.insert(provider)
         provider.patients = [parent, child]
@@ -66,6 +74,9 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Member ID: XYZ123"))
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Walgreens: 1 Main St, 555-0199"))
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Pat Example: Parent, 555-0100"))
+        XCTAssertTrue(IntakeSummary.text(for: child).contains("School nurse: Nurse Lee, 555-0177"))
+        XCTAssertFalse(IntakeSummary.sections(for: Person(name: "No School")).contains { $0.title == "School" },
+                       "A person with no school details has no School section")
     }
 
     func testSummaryItemIDsAreStable() {
@@ -117,6 +128,9 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertEqual(restored.people, archive.people)
         XCTAssertEqual(restored.pharmacies, archive.pharmacies)
         XCTAssertEqual(restored.contacts, archive.contacts)
+        XCTAssertEqual(restored.schools, archive.schools)
+        XCTAssertEqual(child.school?.name, "Maple Elementary")
+        XCTAssertEqual(child.teacherName, "Ms. Park")
     }
 
     func testBackupRejectsWrongPasswordAndOtherFiles() throws {

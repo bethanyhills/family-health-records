@@ -212,3 +212,21 @@ final class Pharmacy {
         self.address = address
     }
 }
+
+/// A school, shared by siblings. Each child's grade and teacher live on `Person`.
+@Model
+final class School {
+    var id: UUID = UUID()
+    var name: String = ""
+    var address: String = ""
+    var phone: String = ""
+    var nurseName: String = ""
+    var nursePhone: String = ""
+    var nurseEmail: String = ""
+    var notes: String = ""
+    var students: [Person] = []
+
+    init(name: String) {
+        self.name = name
+    }
+}
