@@ -2,10 +2,12 @@ import SwiftData
 import SwiftUI
 
 /// School details on a child's page: their grade and teacher, plus the shared school.
+/// The editor sheet is presented by the page, not here: a sheet attached to a List section
+/// is dismissed as soon as the list redraws that section.
 struct SchoolSection: View {
     let person: Person
+    let onEdit: () -> Void
     @Environment(\.recordAccess) private var access
-    @State private var isEditing = false
 
     var body: some View {
         Section {
@@ -26,17 +28,12 @@ struct SchoolSection: View {
                 }
             }
             if access.canEdit {
-                Button {
-                    isEditing = true
-                } label: {
+                Button(action: onEdit) {
                     Label(person.hasSchoolInfo ? "Edit school details" : "Add school details", systemImage: "graduationcap")
                 }
             }
         } header: {
             Text("School")
-        }
-        .sheet(isPresented: $isEditing) {
-            NavigationStack { SchoolEditView(person: person) }
         }
     }
 }

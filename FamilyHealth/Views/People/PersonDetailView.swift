@@ -7,6 +7,7 @@ struct PersonDetailView: View {
     @Environment(\.recordAccess) private var access
 
     @State private var isEditing = false
+    @State private var isEditingSchool = false
 
     var body: some View {
         List {
@@ -68,7 +69,7 @@ struct PersonDetailView: View {
                 }
             }
 
-            SchoolSection(person: person)
+            SchoolSection(person: person) { isEditingSchool = true }
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
@@ -98,6 +99,9 @@ struct PersonDetailView: View {
         }
         .sheet(isPresented: $isEditing) {
             NavigationStack { PersonEditView(person: person) }
+        }
+        .sheet(isPresented: $isEditingSchool) {
+            NavigationStack { SchoolEditView(person: person) }
         }
     }
 
