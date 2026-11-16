@@ -95,6 +95,28 @@ enum ModelStore {
             contact.person = nil
         }
 
+        // Shared records left with nobody, e.g. an insurance card removed from its only member
+        // before 1.1 deleted unused cards. Without this they kept showing up in "Add existing".
+        removeUnusedSharedRecords(in: context)
+
         if context.hasChanges { try context.save() }
+    }
+
+    /// Deletes insurance, providers, pharmacies, emergency contacts and schools that no
+    /// family member uses any more. Shared records are only reachable through a person, so
+    /// one with nobody left is effectively deleted and should not be offered again.
+    static func removeUnusedSharedRecords(in context: ModelContext) {
+        // Saving first brings both sides of each relationship up to date.
+        try? context.save()
+        func prune<T: PersistentModel>(_ type: T.Type, isUnused: (T) -> Bool) {
+            for item in (try? context.fetch(FetchDescriptor<T>())) ?? [] where isUnused(item) {
+                context.delete(item)
+            }
+        }
+        prune(InsurancePolicy.self) { $0.members.isEmpty }
+        prune(Provider.self) { $0.patients.isEmpty }
+        prune(Pharmacy.self) { $0.patients.isEmpty }
+        prune(School.self) { $0.students.isEmpty }
+        prune(EmergencyContact.self) { $0.people.isEmpty && $0.person == nil }
     }
 }

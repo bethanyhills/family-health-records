@@ -137,6 +137,8 @@ struct SchoolEditView: View {
     }
 
     private func save() {
+        // A school no child attends any more isn't offered again.
+        defer { ModelStore.removeUnusedSharedRecords(in: modelContext) }
         if noSchool {
             person.schools = []
             person.schoolGrade = ""

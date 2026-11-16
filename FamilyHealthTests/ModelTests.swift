@@ -63,6 +63,37 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(policy.members.map(\.name), ["Pat Example"])
     }
 
+    func testUnusedSharedRecordsAreRemovedButSharedOnesStay() throws {
+        let context = makeContext()
+        let mom = Person(name: "Mom Example")
+        let kid = Person(name: "Kid Example")
+        context.insert(mom)
+        context.insert(kid)
+        let oldCard = InsurancePolicy(carrier: "Old Carrier")
+        let familyCard = InsurancePolicy(carrier: "Family Carrier")
+        let pediatrician = Provider(name: "Dr. Example")
+        let school = School(name: "Maple Elementary")
+        context.insert(oldCard)
+        context.insert(familyCard)
+        context.insert(pediatrician)
+        context.insert(school)
+        oldCard.members = [kid]
+        familyCard.members = [mom, kid]
+        pediatrician.patients = [kid]
+        kid.schools = [school]
+        try context.save()
+
+        // Remove the old card and the kid's school; drop the kid from the family card.
+        oldCard.members.removeAll { $0.id == kid.id }
+        familyCard.members.removeAll { $0.id == kid.id }
+        kid.schools = []
+        ModelStore.removeUnusedSharedRecords(in: context)
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<InsurancePolicy>()).map(\.carrier), ["Family Carrier"])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<School>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Provider>()), 1, "Still the kid's doctor")
+    }
+
     func testAgeCountsWholeYears() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "UTC"))

@@ -8,6 +8,7 @@ import VisionKit
 struct InsuranceView: View {
     let person: Person
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
     @Query(sort: \InsurancePolicy.carrier) private var allPolicies: [InsurancePolicy]
 
@@ -25,6 +26,7 @@ struct InsuranceView: View {
             editor: { InsuranceEditView(policy: $0, defaultMember: person) },
             onRemove: { policy in
                 policy.members.removeAll { $0.id == person.id }
+                ModelStore.removeUnusedSharedRecords(in: modelContext)
             }
         )
         .toolbar {
@@ -215,6 +217,7 @@ struct InsuranceEditView: View {
         target.cardFrontImage = front
         target.cardBackImage = back
         target.members = people.filter { memberIDs.contains($0.id) }
+        ModelStore.removeUnusedSharedRecords(in: modelContext)
     }
 }
 

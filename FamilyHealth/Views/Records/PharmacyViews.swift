@@ -7,6 +7,7 @@ import SwiftUI
 struct PharmaciesView: View {
     let person: Person
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
     @Query(sort: \Pharmacy.name) private var allPharmacies: [Pharmacy]
 
@@ -24,6 +25,7 @@ struct PharmaciesView: View {
             editor: { PharmacyEditView(pharmacy: $0, defaultPerson: person) },
             onRemove: { pharmacy in
                 pharmacy.patients.removeAll { $0.id == person.id }
+                ModelStore.removeUnusedSharedRecords(in: modelContext)
             }
         )
         .toolbar {
@@ -133,6 +135,7 @@ struct PharmacyEditView: View {
         target.longitude = longitude
         target.notes = notes.trimmed
         target.patients = people.filter { personIDs.contains($0.id) }
+        ModelStore.removeUnusedSharedRecords(in: modelContext)
         onSaved?(target)
     }
 }
