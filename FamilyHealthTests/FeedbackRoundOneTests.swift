@@ -86,12 +86,17 @@ final class FeedbackRoundOneTests: XCTestCase {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
-        let url = folder.appendingPathComponent("FamilyHealth.store")
+        let oldFolder = folder.appendingPathComponent("v1", isDirectory: true)
+        let newFolder = folder.appendingPathComponent("v2", isDirectory: true)
+        try FileManager.default.createDirectory(at: oldFolder, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: newFolder, withIntermediateDirectories: true)
+        let oldURL = oldFolder.appendingPathComponent("FamilyHealth.store")
+        let url = newFolder.appendingPathComponent("FamilyHealth.store")
 
         // A database written by version 1.0.
         try autoreleasepool {
             let schema = Schema(versionedSchema: SchemaV1.self)
-            let configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
+            let configuration = ModelConfiguration(schema: schema, url: oldURL, cloudKitDatabase: .none)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let context = ModelContext(container)
             let kid = SchemaV1.Person(name: "Kid Example")
@@ -107,6 +112,15 @@ final class FeedbackRoundOneTests: XCTestCase {
             context.insert(med)
             med.person = kid
             try context.save()
+        }
+
+        // Copy the saved files, as they would sit on the phone, so this version opens a file
+        // that no other connection in this test process still has open.
+        for name in try FileManager.default.contentsOfDirectory(atPath: oldFolder.path) {
+            try FileManager.default.copyItem(
+                at: oldFolder.appendingPathComponent(name),
+                to: newFolder.appendingPathComponent(name)
+            )
         }
 
         // Opened by this version. Throws (instead of crashing) so a failure shows its reason.
