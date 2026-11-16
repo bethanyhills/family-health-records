@@ -118,6 +118,29 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<FamilyHistoryItem>()), 3)
     }
 
+    func testConditionCopiesWithoutDateAndSkipsDuplicates() throws {
+        let context = makeContext()
+        let kid = Person(name: "Kid Example")
+        let sib = Person(name: "Sib Example")
+        let mom = Person(name: "Mom Example")
+        [kid, sib, mom].forEach { context.insert($0) }
+        let momsOwn = Condition(name: "adhd")
+        context.insert(momsOwn)
+        momsOwn.person = mom
+
+        let adhd = Condition(name: "ADHD", status: .active, diagnosedDate: .now)
+        adhd.treatingProvider = "Dr. Example"
+        context.insert(adhd)
+        adhd.person = kid
+        adhd.copy(to: [sib, mom], in: context)
+        try context.save()
+
+        XCTAssertEqual(sib.conditions.map(\.name), ["ADHD"])
+        XCTAssertNil(sib.conditions.first?.diagnosedDate)
+        XCTAssertEqual(sib.conditions.first?.treatingProvider, "Dr. Example")
+        XCTAssertEqual(mom.conditions.count, 1, "Mom already had it")
+    }
+
     func testAgeCountsWholeYears() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "UTC"))
