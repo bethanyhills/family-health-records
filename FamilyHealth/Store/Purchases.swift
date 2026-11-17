@@ -52,7 +52,7 @@ final class Purchases {
     func start() async {
         if updates == nil {
             updates = Task { [weak self] in
-                for await update in Transaction.updates {
+                for await update in StoreKit.Transaction.updates {
                     await self?.handle(update)
                 }
             }
@@ -74,7 +74,7 @@ final class Purchases {
     /// Checks what this Apple ID owns. Works offline from StoreKit's cache.
     func refresh() async {
         var owned = false
-        for await entitlement in Transaction.currentEntitlements {
+        for await entitlement in StoreKit.Transaction.currentEntitlements {
             if case .verified(let transaction) = entitlement,
                transaction.productID == Self.unlockProductID,
                transaction.revocationDate == nil {
@@ -121,7 +121,7 @@ final class Purchases {
         }
     }
 
-    private func handle(_ verification: VerificationResult<Transaction>) async {
+    private func handle(_ verification: VerificationResult<StoreKit.Transaction>) async {
         guard case .verified(let transaction) = verification else { return }
         if transaction.productID == Self.unlockProductID {
             setUnlocked(transaction.revocationDate == nil)
