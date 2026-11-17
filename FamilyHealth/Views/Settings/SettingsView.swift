@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppLock.settingKey) private var requireAuthentication = true
+    @Environment(Purchases.self) private var purchases
+    @State private var isShowingUnlock = false
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -21,6 +23,8 @@ struct SettingsView: View {
                 } footer: {
                     Text("Asks for \(AppLock.biometryName) or your passcode every time Family Health Binder opens.")
                 }
+
+                PurchaseSection { isShowingUnlock = true }
 
                 BackupSection()
 
@@ -43,6 +47,10 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .sheet(isPresented: $isShowingUnlock) {
+                UnlockView()
+            }
+            .purchaseAlert(purchases, when: !isShowingUnlock)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
