@@ -39,6 +39,9 @@ struct BackupSection: View {
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var importedData: Data?
+    @State private var isSharing = false
+    @State private var isImportingShared = false
+    @State private var sharedData: Data?
     @State private var message: String?
     @State private var pendingMessage: String?
 
@@ -53,6 +56,16 @@ struct BackupSection: View {
                 isImporting = true
             } label: {
                 Label("Restore from a backup", systemImage: "arrow.counterclockwise")
+            }
+            Button {
+                isSharing = true
+            } label: {
+                Label("Share family members…", systemImage: "person.2.badge.plus")
+            }
+            Button {
+                isImportingShared = true
+            } label: {
+                Label("Import shared family members", systemImage: "square.and.arrow.down")
             }
         } header: {
             Text("Backup")
@@ -77,6 +90,33 @@ struct BackupSection: View {
                 BackupPasswordView(mode: .restore) { password in
                     restore(password: password)
                 }
+            }
+        }
+        .sheet(isPresented: $isSharing) {
+            NavigationStack { ShareProfilesView() }
+        }
+        .sheet(isPresented: Binding(get: { sharedData != nil }, set: { if !$0 { sharedData = nil } }), onDismiss: {
+            message = pendingMessage
+            pendingMessage = nil
+        }) {
+            NavigationStack {
+                BackupPasswordView(mode: .importShared) { password in
+                    importShared(password: password)
+                }
+            }
+        }
+        .fileImporter(isPresented: $isImportingShared, allowedContentTypes: [.json, .data]) { result in
+            switch result {
+            case .success(let url):
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    sharedData = try Data(contentsOf: url)
+                } catch {
+                    message = error.localizedDescription
+                }
+            case .failure(let error):
+                message = error.localizedDescription
             }
         }
         .fileExporter(
@@ -119,7 +159,7 @@ struct BackupSection: View {
         let when = lastBackupAt == 0
             ? "You haven't made a backup yet."
             : "Last backup: \(Date(timeIntervalSince1970: lastBackupAt).formatted(date: .abbreviated, time: .shortened))."
-        return "\(when) The backup is a password-protected file you can save to Files or a computer, and use to move your records to a new iPhone."
+        return "\(when) The backup is a password-protected file you can save to Files or a computer, and use to move your records to a new iPhone. To give someone else a copy of some family members, use Share family members."
     }
 
     private func makeBackup(password: String) -> String? {
@@ -136,6 +176,9 @@ struct BackupSection: View {
         guard let importedData else { return nil }
         do {
             let archive = try BackupCrypto.decrypt(importedData, password: password)
+            if archive.isSharedProfiles == true {
+                return "This file has only some family members. Use Import shared family members instead, so nothing else is replaced."
+            }
             try archive.restore(into: modelContext)
             pendingMessage = "Restored \(archive.people.count) family member\(archive.people.count == 1 ? "" : "s") from the backup made \(archive.exportedAt.formatted(date: .abbreviated, time: .omitted))."
             return nil
@@ -145,9 +188,28 @@ struct BackupSection: View {
     }
 }
 
+extension BackupSection {
+    fileprivate func importShared(password: String) -> String? {
+        guard let sharedData else { return nil }
+        do {
+            let archive = try BackupCrypto.decrypt(sharedData, password: password)
+            let result = try archive.merge(into: modelContext)
+            let names = archive.people.map(\.name).joined(separator: ", ")
+            pendingMessage = switch (result.added, result.updated) {
+            case (_, 0): "Added \(names)."
+            case (0, _): "Updated \(names)."
+            default: "Added or updated \(names)."
+            }
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+}
+
 /// Asks for the backup password. `onSubmit` returns an error message to show, or nil when done.
 struct BackupPasswordView: View {
-    enum Mode { case create, restore }
+    enum Mode { case create, restore, importShared }
 
     let mode: Mode
     let onSubmit: (String) -> String?
@@ -171,14 +233,16 @@ struct BackupPasswordView: View {
             } footer: {
                 Text(mode == .create
                      ? "Choose a password of at least \(BackupCrypto.minimumPasswordLength) characters. You'll need it to restore. If it's lost, the backup can't be opened."
-                     : "Enter the password you chose when you made this backup.")
+                     : mode == .restore
+                        ? "Enter the password you chose when you made this backup."
+                        : "Enter the password from the person who shared this file. Anyone already on this iPhone is updated; everyone else stays as they are.")
             }
             if let error {
                 Text(error)
                     .foregroundStyle(.red)
             }
         }
-        .navigationTitle(mode == .create ? "Back up" : "Restore")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -188,7 +252,7 @@ struct BackupPasswordView: View {
                 if isWorking {
                     ProgressView()
                 } else {
-                    Button(mode == .create ? "Create" : "Restore") {
+                    Button(buttonTitle) {
                         if mode == .restore {
                             isConfirmingReplace = true
                         } else {
@@ -209,7 +273,23 @@ struct BackupPasswordView: View {
     private var canSubmit: Bool {
         switch mode {
         case .create: password.count >= BackupCrypto.minimumPasswordLength && password == confirmation
-        case .restore: !password.isEmpty
+        case .restore, .importShared: !password.isEmpty
+        }
+    }
+
+    private var title: String {
+        switch mode {
+        case .create: "Back up"
+        case .restore: "Restore"
+        case .importShared: "Import"
+        }
+    }
+
+    private var buttonTitle: String {
+        switch mode {
+        case .create: "Create"
+        case .restore: "Restore"
+        case .importShared: "Import"
         }
     }
 
