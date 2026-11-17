@@ -32,6 +32,7 @@ struct BackupDocument: FileDocument {
 /// Settings section for making and restoring the password-protected backup file.
 struct BackupSection: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.recordAccess) private var access
     @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
 
     @State private var isChoosingPassword = false
@@ -67,6 +68,9 @@ struct BackupSection: View {
             } label: {
                 Label("Import shared family members", systemImage: "square.and.arrow.down")
             }
+            // Adding people needs the trial or the unlock. Restoring your own
+            // backup always works, so records are never stuck on an old phone.
+            .disabled(!access.canEdit)
         } header: {
             Text("Backup")
         } footer: {

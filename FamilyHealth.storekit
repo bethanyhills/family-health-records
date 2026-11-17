@@ -1,0 +1,33 @@
+{
+  "identifier" : "5E0A6F2C",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "6.99",
+      "familyShareable" : false,
+      "internalID" : "6740000001",
+      "localizations" : [
+        {
+          "description" : "Keep adding and editing your family's records, for good.",
+          "displayName" : "Unlock Family Health Binder",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.bethanyhills.FamilyHealth.unlock",
+      "referenceName" : "Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

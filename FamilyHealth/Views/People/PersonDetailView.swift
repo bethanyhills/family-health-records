@@ -5,12 +5,20 @@ struct PersonDetailView: View {
     @Bindable var person: Person
     @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
+    @Environment(Purchases.self) private var purchases
 
     @State private var isEditing = false
     @State private var isEditingSchool = false
+    @State private var isShowingUnlock = false
 
     var body: some View {
         List {
+            if purchases.status == .ended {
+                Section {
+                    TrialBanner(status: .ended) { isShowingUnlock = true }
+                }
+            }
+
             header
 
             Section {
@@ -115,6 +123,9 @@ struct PersonDetailView: View {
         }
         .sheet(isPresented: $isEditingSchool) {
             NavigationStack { SchoolEditView(person: person) }
+        }
+        .sheet(isPresented: $isShowingUnlock) {
+            UnlockView()
         }
     }
 
