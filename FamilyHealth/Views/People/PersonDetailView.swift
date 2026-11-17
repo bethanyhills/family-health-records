@@ -10,6 +10,7 @@ struct PersonDetailView: View {
     @State private var isEditing = false
     @State private var isEditingSchool = false
     @State private var isShowingUnlock = false
+    @State private var addingPlanKind: DocumentKind?
 
     var body: some View {
         List {
@@ -89,7 +90,7 @@ struct PersonDetailView: View {
                 }
             }
 
-            SchoolSection(person: person) { isEditingSchool = true }
+            SchoolSection(person: person, onEdit: { isEditingSchool = true }, onAddPlanDocument: { addingPlanKind = $0 })
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
@@ -123,6 +124,9 @@ struct PersonDetailView: View {
         }
         .sheet(isPresented: $isEditingSchool) {
             NavigationStack { SchoolEditView(person: person) }
+        }
+        .sheet(item: $addingPlanKind) { kind in
+            NavigationStack { DocumentEditView(person: person, document: nil, initialKind: kind) }
         }
         .sheet(isPresented: $isShowingUnlock) {
             UnlockView()

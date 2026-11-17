@@ -21,6 +21,8 @@ final class Person {
     var teacherPhone: String = ""
     /// How this person communicates with providers (1.3), e.g. "Deaf, uses ASL, needs an interpreter".
     var communicationNeeds: String = ""
+    /// An active 504 plan or IEP at school (1.4). The plan itself is kept in Documents.
+    var schoolPlanRaw: String = SchoolPlan.noPlan.rawValue
     @Attribute(.externalStorage) var photoData: Data?
     var sortOrder: Int = 0
     var createdAt: Date = Date()
@@ -78,8 +80,21 @@ final class Person {
 
     var school: School? { schools.first }
 
+    var schoolPlan: SchoolPlan {
+        get { SchoolPlan(rawValue: schoolPlanRaw) ?? .noPlan }
+        set { schoolPlanRaw = newValue.rawValue }
+    }
+
+    /// The newest document for the active plan, which the school section links to.
+    var schoolPlanDocument: HealthDocument? {
+        guard let kind = schoolPlan.documentKind else { return nil }
+        return documents
+            .filter { $0.kind == kind }
+            .max { ($0.date ?? $0.createdAt) < ($1.date ?? $1.createdAt) }
+    }
+
     var hasSchoolInfo: Bool {
-        school != nil || !schoolGrade.isBlank || !teacherName.isBlank
+        school != nil || !schoolGrade.isBlank || !teacherName.isBlank || schoolPlan != .noPlan
     }
 
     var displayName: String {
