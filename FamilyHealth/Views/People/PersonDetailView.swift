@@ -99,6 +99,7 @@ struct PersonDetailView: View {
                 InfoRow("Height", person.height)
                 InfoRow("Weight", person.weight)
                 InfoRow("Communication needs", person.communicationNeeds)
+                SocialSecurityRow(digits: person.socialSecurityNumber)
                 if hasNoBasics {
                     Text("No details yet. Tap Edit to add blood type, height and weight.")
                         .foregroundStyle(.secondary)
@@ -156,7 +157,7 @@ struct PersonDetailView: View {
 
     private var hasNoBasics: Bool {
         person.dateOfBirth == nil && person.sex == .unspecified && person.bloodType == .unknown
-            && person.height.isBlank && person.weight.isBlank
+            && person.height.isBlank && person.weight.isBlank && person.socialSecurityNumber.isEmpty
     }
 }
 
