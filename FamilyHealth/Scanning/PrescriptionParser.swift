@@ -514,8 +514,14 @@ enum PrescriptionParser {
         pattern: #"\b(?:qty|quantity|disp(?:ense)?)\s*[:.]?\s*#?\s*(\d+(?:\.\d+)?)\s*(ml|tablets?|tabs?|capsules?|caps?|g|grams?|each|ea|patches|inhalers?)?\b"#,
         options: [.caseInsensitive]
     )
-    private static let refillsPattern = try! NSRegularExpression(
-        pattern: #"\b(?:refills?|rfl?s?)\s*(?:left|remaining|authorized)?\s*[:.]?\s*(\d+(?![/\-.\d])|no|none|zero)\b|\b(no|\d+)\s+refills?\b"#,
+    /// "Refills: 2". Tried first, so "Qty: 30  Refills: 0" isn't read as 30 refills.
+    private static let labeledRefillsPattern = try! NSRegularExpression(
+        pattern: #"\b(?:refills?|rfl?s?)\s*(?:left|remaining|authorized)?\s*[:.]?\s*(\d+(?![/\-.\d])|no|none|zero)\b"#,
+        options: [.caseInsensitive]
+    )
+    /// "2 refills", "No refills".
+    private static let trailingRefillsPattern = try! NSRegularExpression(
+        pattern: #"\b(no|\d+)\s+refills?\b"#,
         options: [.caseInsensitive]
     )
 
@@ -534,10 +540,9 @@ enum PrescriptionParser {
     }
 
     private static func refills(in text: String) -> String {
-        guard let match = refillsPattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return "" }
-        let ns = text as NSString
-        let group = match.range(at: 1).location != NSNotFound ? 1 : 2
-        let value = ns.substring(with: match.range(at: group)).lowercased()
+        var value = first(labeledRefillsPattern, in: text)
+        if value.isEmpty { value = first(trailingRefillsPattern, in: text) }
+        guard !value.isEmpty else { return "" }
         return Int(value).map(String.init) ?? "0"
     }
 
