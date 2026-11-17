@@ -36,10 +36,12 @@ enum IntakeSummary {
         [
             patient(person, today: today),
             allergies(person),
-            medications(person),
+            medications(person, current: true),
+            medications(person, current: false),
             conditions(person, current: true),
             conditions(person, current: false),
-            therapies(person),
+            therapies(person, current: true),
+            therapies(person, current: false),
             procedures(person),
             immunizations(person),
             familyHistory(person),
@@ -50,7 +52,7 @@ enum IntakeSummary {
             school(person),
         ]
         // Hide empty sections that many people won't have.
-        .filter { !$0.items.isEmpty || !["Past conditions", "Current therapies", "School"].contains($0.title) }
+        .filter { !$0.items.isEmpty || !["Past medications", "Past conditions", "Current therapies", "Past therapies", "School"].contains($0.title) }
     }
 
     /// Plain text for pasting into an email or a web form's free-text box.
@@ -97,17 +99,31 @@ enum IntakeSummary {
         return SummarySection(title: "Allergies", items: items, emptyText: "No known allergies recorded")
     }
 
-    private static func medications(_ person: Person) -> SummarySection {
+    private static func medications(_ person: Person, current: Bool) -> SummarySection {
         let items = person.medications
-            .filter(\.isActive)
+            .filter { $0.isActive == current }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             .map { med in
                 SummaryItem(
                     label: [med.name, med.dose].joined(" "),
-                    value: [med.frequency, med.reason.isBlank ? "" : "for \(med.reason)"].joined(", ")
+                    value: [
+                        current ? med.frequency : "",
+                        med.reason.isBlank ? "" : "for \(med.reason)",
+                        current ? "" : dateRange(from: med.startDate, to: med.endDate),
+                    ].joined(", ")
                 )
             }
-        return SummarySection(title: "Current medications", items: items)
+        return SummarySection(title: current ? "Current medications" : "Past medications", items: items)
+    }
+
+    /// When something that has ended was taken, e.g. "03/01/2021 to 06/15/2023".
+    private static func dateRange(from start: Date?, to end: Date?) -> String {
+        switch (start, end) {
+        case let (start?, end?): "\(start.formDate) to \(end.formDate)"
+        case let (start?, nil): "started \(start.formDate)"
+        case let (nil, end?): "stopped \(end.formDate)"
+        case (nil, nil): ""
+        }
     }
 
     private static func conditions(_ person: Person, current: Bool) -> SummarySection {
@@ -123,21 +139,23 @@ enum IntakeSummary {
         return SummarySection(title: current ? "Medical conditions" : "Past conditions", items: items)
     }
 
-    private static func therapies(_ person: Person) -> SummarySection {
+    private static func therapies(_ person: Person, current: Bool) -> SummarySection {
         let items = person.therapies
-            .filter(\.isActive)
+            .filter { $0.isActive == current }
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
             .map { therapy in
                 SummaryItem(
                     label: therapy.displayName,
                     value: [
                         therapy.provider.map { [$0.name, $0.practice, $0.phone].joined(", ") } ?? "",
-                        therapy.frequency,
-                        therapy.startDate.map { "since \($0.formDate)" } ?? "",
+                        current ? therapy.frequency : "",
+                        current
+                            ? therapy.startDate.map { "since \($0.formDate)" } ?? ""
+                            : dateRange(from: therapy.startDate, to: therapy.endDate),
                     ].joined("; ")
                 )
             }
-        return SummarySection(title: "Current therapies", items: items)
+        return SummarySection(title: current ? "Current therapies" : "Past therapies", items: items)
     }
 
     private static func procedures(_ person: Person) -> SummarySection {
