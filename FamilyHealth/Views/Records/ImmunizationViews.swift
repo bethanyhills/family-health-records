@@ -9,7 +9,7 @@ struct ImmunizationsView: View {
         RecordList(
             title: "Immunizations",
             emptyTitle: "No immunizations",
-            emptyMessage: "Add vaccines with the date and dose, newest first.",
+            emptyMessage: "Add vaccines with the date and dose. Have a vaccine record? Keep it in Documents as a Vaccine record, then tap Add these vaccines to Immunizations.",
             systemImage: "syringe",
             sections: [RecordSection(nil, sorted)],
             row: { shot in

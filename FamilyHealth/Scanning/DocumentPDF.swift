@@ -38,6 +38,21 @@ enum DocumentPDF {
         return lines.joined(separator: "\n")
     }
 
+    /// The text as rows: a PDF's own lines, or rows read from pictures of its pages.
+    static func rows(of data: Data, maxScannedPages: Int = 10) async -> [String] {
+        guard let document = PDFDocument(data: data) else { return [] }
+        let embedded = (document.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if embedded.count > 20 { return embedded.components(separatedBy: .newlines) }
+        var rows: [String] = []
+        for index in 0..<min(document.pageCount, maxScannedPages) {
+            guard let page = document.page(at: index),
+                  let jpeg = image(of: page, width: 2000).jpegData(compressionQuality: 0.85)
+            else { continue }
+            rows += await TextRecognizer.rows(in: jpeg)
+        }
+        return rows
+    }
+
     static func thumbnail(of data: Data, width: CGFloat = 120) -> UIImage? {
         guard let page = PDFDocument(data: data)?.page(at: 0) else { return nil }
         return image(of: page, width: width)

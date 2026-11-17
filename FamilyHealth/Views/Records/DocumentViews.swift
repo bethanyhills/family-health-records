@@ -135,6 +135,7 @@ struct DocumentDetailView: View {
 
     @Environment(\.recordAccess) private var access
     @State private var isEditing = false
+    @State private var isImportingVaccines = false
 
     var body: some View {
         Group {
@@ -161,6 +162,23 @@ struct DocumentDetailView: View {
                 .padding(.vertical, 8)
                 .background(.bar)
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if document.pdfData != nil, access.canEdit,
+               document.kind == .vaccineRecord || VaccineRecordParser.looksLikeVaccineRecord(document.recognizedText) {
+                Button {
+                    isImportingVaccines = true
+                } label: {
+                    Label("Add these vaccines to Immunizations", systemImage: "syringe")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding()
+                .background(.bar)
+            }
+        }
+        .sheet(isPresented: $isImportingVaccines) {
+            VaccineImportView(person: person, document: document)
         }
         .navigationTitle(document.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
