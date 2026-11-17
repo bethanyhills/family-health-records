@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppLock.settingKey) private var requireAuthentication = true
+    @State private var backup = BackupFlow()
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -22,7 +23,7 @@ struct SettingsView: View {
                     Text("Asks for \(AppLock.biometryName) or your passcode every time Family Health Binder opens.")
                 }
 
-                BackupSection()
+                BackupSection(flow: backup)
 
                 Section("Privacy") {
                     Label("Your records are stored only on this iPhone.", systemImage: "iphone")
@@ -43,6 +44,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .backupPresentations(backup)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
