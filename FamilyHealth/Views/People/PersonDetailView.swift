@@ -94,12 +94,12 @@ struct PersonDetailView: View {
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
+                SocialSecurityRow(digits: person.socialSecurityNumber)
                 InfoRow("Sex", person.sex == .unspecified ? "" : person.sex.label)
                 InfoRow("Blood type", person.bloodType == .unknown ? "" : person.bloodType.label)
                 InfoRow("Height", person.height)
                 InfoRow("Weight", person.weight)
                 InfoRow("Communication needs", person.communicationNeeds)
-                SocialSecurityRow(digits: person.socialSecurityNumber)
                 if hasNoBasics {
                     Text("No details yet. Tap Edit to add blood type, height and weight.")
                         .foregroundStyle(.secondary)
