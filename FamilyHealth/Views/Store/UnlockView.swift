@@ -19,7 +19,7 @@ struct UnlockView: View {
                         Text("Unlock Family Health Binder")
                             .font(.title2.bold())
                             .multilineTextAlignment(.center)
-                        Text("One payment. No subscription.")
+                        Text("One payment, shared with your Family Sharing group. No subscription.")
                             .foregroundStyle(.secondary)
                     }
 
