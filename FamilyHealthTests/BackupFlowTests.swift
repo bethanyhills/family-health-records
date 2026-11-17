@@ -21,8 +21,8 @@ final class BackupFlowTests: XCTestCase {
         XCTAssertEqual(flow.message?.hasPrefix("Restored 1 family member"), true)
         XCTAssertNotNil(flow.restore(password: "wrong", in: target))
 
-        let shared = try BackupCrypto.encrypt(BackupArchive(context: source, onlyPeople: []), password: "pw", iterations: 1_000)
+        let shared = try BackupCrypto.encrypt(BackupArchive(context: source, onlyPeople: []), password: "shared-pass", iterations: 1_000)
         flow.importedData = shared
-        XCTAssertEqual(flow.restore(password: "pw", in: target)?.hasPrefix("This file has only some family members"), true)
+        XCTAssertEqual(flow.restore(password: "shared-pass", in: target)?.hasPrefix("This file has only some family members"), true)
     }
 }
