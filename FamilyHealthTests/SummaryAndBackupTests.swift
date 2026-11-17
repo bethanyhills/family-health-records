@@ -23,6 +23,9 @@ final class SummaryAndBackupTests: XCTestCase {
         current.reason = "asthma"
         current.person = child
         past.person = child
+        past.reason = "ear infection"
+        past.startDate = TypedDate.parse("03/01/2021")
+        past.endDate = TypedDate.parse("03/11/2021")
 
         let condition = Condition(name: "Asthma", status: .managed)
         context.insert(condition)
@@ -87,8 +90,15 @@ final class SummaryAndBackupTests: XCTestCase {
 
         XCTAssertFalse(sections.contains { $0.title == "Past conditions" }, "Empty past conditions are hidden")
         let therapies = try XCTUnwrap(sections.first { $0.title == "Current therapies" })
-        XCTAssertEqual(therapies.items.map(\.label), ["Occupational therapy (OT)"], "Past therapies are left out")
+        XCTAssertEqual(therapies.items.map(\.label), ["Occupational therapy (OT)"])
         XCTAssertEqual(therapies.items.first?.value, "Jane Smith, OTR/L, Little Steps; Weekly")
+        let pastTherapies = try XCTUnwrap(sections.first { $0.title == "Past therapies" })
+        XCTAssertEqual(pastTherapies.items.map(\.label), ["Vision therapy"])
+        let pastMeds = try XCTUnwrap(sections.first { $0.title == "Past medications" })
+        XCTAssertEqual(pastMeds.items.map(\.label), ["Amoxicillin 250 mg"])
+        XCTAssertEqual(pastMeds.items.first?.value, "for ear infection, 03/01/2021 to 03/11/2021")
+        let titles = sections.map(\.title)
+        XCTAssertEqual(titles.firstIndex(of: "Past medications"), titles.firstIndex(of: "Current medications").map { $0 + 1 })
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Member ID: XYZ123"))
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Walgreens: 1 Main St, 555-0199"))
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Pat Example: Parent, 555-0100"))
