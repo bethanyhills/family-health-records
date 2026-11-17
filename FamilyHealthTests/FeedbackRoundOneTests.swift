@@ -143,6 +143,72 @@ final class FeedbackRoundOneTests: XCTestCase {
         XCTAssertEqual(kid.preferredPharmacy, "")
     }
 
+    func testUpgradingAVersionOnePointOneDatabaseKeepsRecords() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let oldFolder = folder.appendingPathComponent("v2", isDirectory: true)
+        let newFolder = folder.appendingPathComponent("v3", isDirectory: true)
+        try FileManager.default.createDirectory(at: oldFolder, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: newFolder, withIntermediateDirectories: true)
+
+        // A database written by version 1.1.
+        try autoreleasepool {
+            let schema = Schema(versionedSchema: SchemaV2.self)
+            let configuration = ModelConfiguration(
+                schema: schema, url: oldFolder.appendingPathComponent("FamilyHealth.store"), cloudKitDatabase: .none
+            )
+            let container = try ModelContainer(for: schema, configurations: [configuration])
+            let context = ModelContext(container)
+            let kid = SchemaV2.Person(name: "Kid Example")
+            context.insert(kid)
+            let ot = SchemaV2.Provider(name: "Jane Smith", specialty: "OT")
+            context.insert(ot)
+            ot.patients = [kid]
+            let school = SchemaV2.School(name: "Maple Elementary")
+            context.insert(school)
+            school.students = [kid]
+            try context.save()
+        }
+        for name in try FileManager.default.contentsOfDirectory(atPath: oldFolder.path) {
+            try FileManager.default.copyItem(
+                at: oldFolder.appendingPathComponent(name), to: newFolder.appendingPathComponent(name)
+            )
+        }
+
+        let container: ModelContainer
+        do {
+            container = try ModelStore.openContainer(url: newFolder.appendingPathComponent("FamilyHealth.store"))
+        } catch {
+            return XCTFail("Upgrade failed: \(error)")
+        }
+        let context = ModelContext(container)
+        try ModelStore.upgradeData(in: context)
+        let kid = try XCTUnwrap(try context.fetch(FetchDescriptor<Person>()).first)
+        XCTAssertEqual(kid.providers.map(\.name), ["Jane Smith"])
+        XCTAssertEqual(kid.school?.name, "Maple Elementary")
+        XCTAssertEqual(kid.therapies.count, 0)
+
+        // The new therapies work on the upgraded database.
+        let therapy = Therapy(kind: .speech)
+        context.insert(therapy)
+        therapy.person = kid
+        therapy.provider = kid.providers.first
+        try context.save()
+        XCTAssertEqual(kid.providers.first?.therapies.map(\.displayName), ["Speech therapy"])
+    }
+
+    // MARK: School grade
+
+    func testSchoolGradeListIsInOrderAndKeepsOldTypedGrades() {
+        XCTAssertEqual(Array(SchoolGrade.all.prefix(5)), ["Preschool", "Pre-K", "Kindergarten", "1st grade", "2nd grade"])
+        XCTAssertTrue(SchoolGrade.all.contains("3rd grade"))
+        XCTAssertTrue(SchoolGrade.all.contains("11th grade"))
+        XCTAssertTrue(SchoolGrade.all.contains("12th grade"))
+        XCTAssertEqual(SchoolGrade.options(keeping: "3rd grade"), SchoolGrade.all)
+        XCTAssertEqual(SchoolGrade.options(keeping: ""), SchoolGrade.all)
+        XCTAssertEqual(SchoolGrade.options(keeping: "3rd").first, "3rd")
+    }
+
     // MARK: Business card
 
     func testBusinessCardParserReadsTherapistCard() {

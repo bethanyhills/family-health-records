@@ -7,6 +7,7 @@ struct PersonDetailView: View {
     @Environment(\.recordAccess) private var access
 
     @State private var isEditing = false
+    @State private var isEditingSchool = false
 
     var body: some View {
         List {
@@ -42,6 +43,9 @@ struct PersonDetailView: View {
                 RecordLink("Conditions", systemImage: "stethoscope", color: .purple, count: person.conditions.filter { $0.status != .resolved }.count) {
                     ConditionsView(person: person)
                 }
+                RecordLink("Therapies", systemImage: "figure.play", color: .pink, count: person.therapies.filter(\.isActive).count) {
+                    TherapiesView(person: person)
+                }
                 RecordLink("Surgeries & procedures", systemImage: "cross.case.fill", color: .orange, count: person.procedures.count) {
                     ProceduresView(person: person)
                 }
@@ -68,7 +72,7 @@ struct PersonDetailView: View {
                 }
             }
 
-            SchoolSection(person: person)
+            SchoolSection(person: person) { isEditingSchool = true }
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
@@ -98,6 +102,9 @@ struct PersonDetailView: View {
         }
         .sheet(isPresented: $isEditing) {
             NavigationStack { PersonEditView(person: person) }
+        }
+        .sheet(isPresented: $isEditingSchool) {
+            NavigationStack { SchoolEditView(person: person) }
         }
     }
 

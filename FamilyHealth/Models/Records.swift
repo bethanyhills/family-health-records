@@ -156,6 +156,9 @@ final class Provider {
     var portalURL: String = ""
     var notes: String = ""
     var patients: [Person] = []
+    /// Therapies this provider gives (1.2). Deleting the provider keeps the therapy.
+    @Relationship(deleteRule: .nullify, inverse: \Therapy.provider)
+    var therapies: [Therapy] = []
 
     init(name: String, specialty: String = "") {
         self.name = name
@@ -228,5 +231,36 @@ final class School {
 
     init(name: String) {
         self.name = name
+    }
+}
+
+/// A therapy a family member receives, such as OT, speech or ABA (1.2).
+@Model
+final class Therapy {
+    var id: UUID = UUID()
+    var kindRaw: String = TherapyKind.occupational.rawValue
+    /// The name to show for "Other", e.g. "Vision therapy".
+    var customName: String = ""
+    var frequency: String = ""
+    var goals: String = ""
+    var notes: String = ""
+    var startDate: Date?
+    var endDate: Date?
+    var isActive: Bool = true
+    var person: Person?
+    var provider: Provider?
+
+    init(kind: TherapyKind, isActive: Bool = true) {
+        self.kindRaw = kind.rawValue
+        self.isActive = isActive
+    }
+
+    var kind: TherapyKind {
+        get { TherapyKind(rawValue: kindRaw) ?? .other }
+        set { kindRaw = newValue.rawValue }
+    }
+
+    var displayName: String {
+        kind == .other && !customName.isBlank ? customName.trimmed : kind.label
     }
 }

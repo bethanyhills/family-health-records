@@ -35,7 +35,10 @@ struct ConditionEditView: View {
     let condition: Condition?
 
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: [SortDescriptor(\Person.sortOrder), SortDescriptor(\Person.name)]) private var people: [Person]
     @State private var name = ""
+    /// Other family members who have this condition too.
+    @State private var copyTo: Set<UUID> = []
     @State private var status = ConditionStatus.active
     @State private var diagnosedDate: Date?
     @State private var treatingProvider = ""
@@ -53,6 +56,15 @@ struct ConditionEditView: View {
                 TextField("Treated by", text: $treatingProvider)
             }
             Section { NotesField(text: $notes) }
+            if !otherPeople.isEmpty {
+                Section {
+                    PeopleToggles(people: otherPeople, selection: $copyTo)
+                } header: {
+                    Text("Also add to")
+                } footer: {
+                    Text("Each person gets their own copy, without the diagnosis date, so you can add their details. Anyone who already has this condition is skipped.")
+                }
+            }
         }
         .onAppear {
             guard !didLoad else { return }
@@ -78,5 +90,26 @@ struct ConditionEditView: View {
         target.diagnosedDate = diagnosedDate
         target.treatingProvider = treatingProvider.trimmed
         target.notes = notes.trimmed
+        target.copy(to: otherPeople.filter { copyTo.contains($0.id) }, in: modelContext)
+    }
+
+    private var otherPeople: [Person] {
+        people.filter { $0.id != person.id }
+    }
+}
+
+extension Condition {
+    /// Adds this condition to each person who doesn't already have one with the same name.
+    /// The diagnosis date is left for that person's own details.
+    func copy(to people: [Person], in context: ModelContext) {
+        for other in people where !other.conditions.contains(where: {
+            $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+        }) {
+            let copy = Condition(name: name, status: status)
+            copy.treatingProvider = treatingProvider
+            copy.notes = notes
+            context.insert(copy)
+            copy.person = other
+        }
     }
 }

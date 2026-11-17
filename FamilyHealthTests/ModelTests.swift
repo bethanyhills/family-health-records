@@ -63,6 +63,84 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(policy.members.map(\.name), ["Pat Example"])
     }
 
+    func testUnusedSharedRecordsAreRemovedButSharedOnesStay() throws {
+        let context = makeContext()
+        let mom = Person(name: "Mom Example")
+        let kid = Person(name: "Kid Example")
+        context.insert(mom)
+        context.insert(kid)
+        let oldCard = InsurancePolicy(carrier: "Old Carrier")
+        let familyCard = InsurancePolicy(carrier: "Family Carrier")
+        let pediatrician = Provider(name: "Dr. Example")
+        let school = School(name: "Maple Elementary")
+        context.insert(oldCard)
+        context.insert(familyCard)
+        context.insert(pediatrician)
+        context.insert(school)
+        oldCard.members = [kid]
+        familyCard.members = [mom, kid]
+        pediatrician.patients = [kid]
+        kid.schools = [school]
+        try context.save()
+
+        // Remove the old card and the kid's school; drop the kid from the family card.
+        oldCard.members.removeAll { $0.id == kid.id }
+        familyCard.members.removeAll { $0.id == kid.id }
+        kid.schools = []
+        ModelStore.removeUnusedSharedRecords(in: context)
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<InsurancePolicy>()).map(\.carrier), ["Family Carrier"])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<School>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Provider>()), 1, "Still the kid's doctor")
+    }
+
+    func testFamilyHistoryCopiesToOthersWithoutDuplicates() throws {
+        let context = makeContext()
+        let mom = Person(name: "Mom Example")
+        let kid = Person(name: "Kid Example")
+        let sib = Person(name: "Sib Example")
+        [mom, kid, sib].forEach { context.insert($0) }
+        let existing = FamilyHistoryItem(relative: "maternal grandmother", condition: "type 2 diabetes")
+        context.insert(existing)
+        existing.person = sib
+
+        let item = FamilyHistoryItem(relative: "Maternal grandmother", condition: "Type 2 diabetes")
+        item.notes = "Diagnosed at 50"
+        context.insert(item)
+        item.person = kid
+        item.copy(to: [mom, sib], in: context)
+        try context.save()
+
+        XCTAssertEqual(mom.familyHistory.map(\.condition), ["Type 2 diabetes"])
+        XCTAssertEqual(mom.familyHistory.first?.notes, "Diagnosed at 50")
+        XCTAssertNotEqual(mom.familyHistory.first?.id, item.id, "Each person gets their own copy")
+        XCTAssertEqual(sib.familyHistory.count, 1, "Sib already had it")
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<FamilyHistoryItem>()), 3)
+    }
+
+    func testConditionCopiesWithoutDateAndSkipsDuplicates() throws {
+        let context = makeContext()
+        let kid = Person(name: "Kid Example")
+        let sib = Person(name: "Sib Example")
+        let mom = Person(name: "Mom Example")
+        [kid, sib, mom].forEach { context.insert($0) }
+        let momsOwn = Condition(name: "adhd")
+        context.insert(momsOwn)
+        momsOwn.person = mom
+
+        let adhd = Condition(name: "ADHD", status: .active, diagnosedDate: .now)
+        adhd.treatingProvider = "Dr. Example"
+        context.insert(adhd)
+        adhd.person = kid
+        adhd.copy(to: [sib, mom], in: context)
+        try context.save()
+
+        XCTAssertEqual(sib.conditions.map(\.name), ["ADHD"])
+        XCTAssertNil(sib.conditions.first?.diagnosedDate)
+        XCTAssertEqual(sib.conditions.first?.treatingProvider, "Dr. Example")
+        XCTAssertEqual(mom.conditions.count, 1, "Mom already had it")
+    }
+
     func testAgeCountsWholeYears() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "UTC"))

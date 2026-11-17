@@ -6,6 +6,7 @@ import SwiftUI
 struct EmergencyContactsView: View {
     let person: Person
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
     @Query(sort: \EmergencyContact.name) private var allContacts: [EmergencyContact]
 
@@ -27,6 +28,7 @@ struct EmergencyContactsView: View {
             editor: { EmergencyContactEditView(contact: $0, defaultPerson: person) },
             onRemove: { contact in
                 contact.people.removeAll { $0.id == person.id }
+                ModelStore.removeUnusedSharedRecords(in: modelContext)
             }
         )
         .toolbar {
@@ -102,6 +104,7 @@ struct EmergencyContactEditView: View {
         target.phone = phone.trimmed
         target.notes = notes.trimmed
         target.people = people.filter { personIDs.contains($0.id) }
+        ModelStore.removeUnusedSharedRecords(in: modelContext)
     }
 }
 

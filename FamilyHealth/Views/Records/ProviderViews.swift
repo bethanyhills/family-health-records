@@ -8,6 +8,7 @@ import VisionKit
 struct ProvidersView: View {
     let person: Person
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
     @Query(sort: \Provider.name) private var allProviders: [Provider]
     @State private var isAddingNew = false
@@ -26,6 +27,7 @@ struct ProvidersView: View {
             editor: { ProviderEditView(provider: $0, defaultPatient: person) },
             onRemove: { provider in
                 provider.patients.removeAll { $0.id == person.id }
+                ModelStore.removeUnusedSharedRecords(in: modelContext)
             }
         )
         .toolbar {
@@ -205,6 +207,7 @@ struct ProviderEditView: View {
         target.portalURL = portalURL.trimmed
         target.notes = notes.trimmed
         target.patients = people.filter { patientIDs.contains($0.id) }
+        ModelStore.removeUnusedSharedRecords(in: modelContext)
         onSaved?(target)
     }
 }

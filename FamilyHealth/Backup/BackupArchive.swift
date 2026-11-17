@@ -3,7 +3,7 @@ import SwiftData
 
 /// A plain, versioned copy of every record, used for the encrypted backup file.
 struct BackupArchive: Codable, Equatable {
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     var version = BackupArchive.currentVersion
     var exportedAt = Date()
@@ -35,6 +35,16 @@ struct BackupArchive: Codable, Equatable {
         var emergencyContacts: [EmergencyContactRecord]
         /// Added in version 2.
         var schoolGrade, teacherName, teacherEmail, teacherPhone: String?
+        /// Added in version 3.
+        var therapies: [TherapyRecord]?
+    }
+
+    struct TherapyRecord: Codable, Equatable {
+        var kind, customName, frequency, goals, notes: String
+        var startDate, endDate: Date?
+        var isActive: Bool
+        /// Matches `ProviderRecord.id`.
+        var providerID: UUID?
     }
 
     struct SchoolRecord: Codable, Equatable {
@@ -87,6 +97,8 @@ struct BackupArchive: Codable, Equatable {
     }
 
     struct ProviderRecord: Codable, Equatable {
+        /// Added in version 3, so therapies can point at their provider.
+        var id: UUID?
         var name, specialty, practice, phone, fax, address, portalURL, notes: String
         var patientIDs: [UUID]
     }
@@ -135,11 +147,16 @@ extension BackupArchive {
                 },
                 emergencyContacts: [],
                 schoolGrade: p.schoolGrade, teacherName: p.teacherName,
-                teacherEmail: p.teacherEmail, teacherPhone: p.teacherPhone
+                teacherEmail: p.teacherEmail, teacherPhone: p.teacherPhone,
+                therapies: p.therapies.sorted { $0.displayName < $1.displayName }.map {
+                    TherapyRecord(kind: $0.kindRaw, customName: $0.customName, frequency: $0.frequency,
+                                  goals: $0.goals, notes: $0.notes, startDate: $0.startDate, endDate: $0.endDate,
+                                  isActive: $0.isActive, providerID: $0.provider?.id)
+                }
             )
         }
         providers = try context.fetch(FetchDescriptor<Provider>(sortBy: [SortDescriptor(\.name)])).map {
-            ProviderRecord(name: $0.name, specialty: $0.specialty, practice: $0.practice, phone: $0.phone,
+            ProviderRecord(id: $0.id, name: $0.name, specialty: $0.specialty, practice: $0.practice, phone: $0.phone,
                            fax: $0.fax, address: $0.address, portalURL: $0.portalURL, notes: $0.notes,
                            patientIDs: $0.patients.map(\.id).sorted { $0.uuidString < $1.uuidString })
         }
@@ -174,9 +191,11 @@ extension BackupArchive {
         for pharmacy in try context.fetch(FetchDescriptor<Pharmacy>()) { context.delete(pharmacy) }
         for contact in try context.fetch(FetchDescriptor<EmergencyContact>()) { context.delete(contact) }
         for school in try context.fetch(FetchDescriptor<School>()) { context.delete(school) }
+        for therapy in try context.fetch(FetchDescriptor<Therapy>()) { context.delete(therapy) }
         try context.save()
 
         var peopleByID: [UUID: Person] = [:]
+        var therapiesByProviderID: [UUID: [Therapy]] = [:]
         for record in people {
             let person = Person(name: record.name, dateOfBirth: record.dateOfBirth, sortOrder: record.sortOrder)
             context.insert(person)
@@ -245,6 +264,19 @@ extension BackupArchive {
                 item.notes = r.notes
                 item.person = person
             }
+            for r in record.therapies ?? [] {
+                let item = Therapy(kind: TherapyKind(rawValue: r.kind) ?? .other, isActive: r.isActive)
+                context.insert(item)
+                item.kindRaw = r.kind
+                item.customName = r.customName
+                item.frequency = r.frequency
+                item.goals = r.goals
+                item.notes = r.notes
+                item.startDate = r.startDate
+                item.endDate = r.endDate
+                item.person = person
+                if let providerID = r.providerID { therapiesByProviderID[providerID, default: []].append(item) }
+            }
             for r in record.emergencyContacts {
                 // Version 1 backups: each contact belonged to one person.
                 let item = EmergencyContact(name: r.name, relationship: r.relationship, phone: r.phone)
@@ -264,6 +296,10 @@ extension BackupArchive {
             provider.portalURL = r.portalURL
             provider.notes = r.notes
             provider.patients = r.patientIDs.compactMap { peopleByID[$0] }
+            if let id = r.id {
+                provider.id = id
+                for therapy in therapiesByProviderID[id] ?? [] { therapy.provider = provider }
+            }
         }
 
         for r in insurancePolicies {

@@ -62,6 +62,7 @@ struct PeopleListView: View {
                 Button("Delete", role: .destructive) {
                     if let personToDelete {
                         modelContext.delete(personToDelete)
+                        ModelStore.removeUnusedSharedRecords(in: modelContext)
                     }
                     personToDelete = nil
                 }

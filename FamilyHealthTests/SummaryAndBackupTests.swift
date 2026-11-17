@@ -41,12 +41,27 @@ final class SummaryAndBackupTests: XCTestCase {
         school.nurseName = "Nurse Lee"
         school.nursePhone = "555-0177"
         school.students = [child]
-        child.schoolGrade = "3rd"
+        child.schoolGrade = "3rd grade"
         child.teacherName = "Ms. Park"
 
         let provider = Provider(name: "Dr. Rivera", specialty: "Pediatrics")
         context.insert(provider)
         provider.patients = [parent, child]
+
+        let ot = Provider(name: "Jane Smith, OTR/L", specialty: "Occupational therapy")
+        context.insert(ot)
+        ot.practice = "Little Steps"
+        ot.patients = [child]
+        let therapy = Therapy(kind: .occupational)
+        context.insert(therapy)
+        therapy.frequency = "Weekly"
+        therapy.goals = "Handwriting"
+        therapy.person = child
+        therapy.provider = ot
+        let pastTherapy = Therapy(kind: .other, isActive: false)
+        context.insert(pastTherapy)
+        pastTherapy.customName = "Vision therapy"
+        pastTherapy.person = child
 
         let policy = InsurancePolicy(carrier: "Example Health")
         context.insert(policy)
@@ -71,6 +86,9 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertEqual(allergies.items.first?.value, "Hives (severe)")
 
         XCTAssertFalse(sections.contains { $0.title == "Past conditions" }, "Empty past conditions are hidden")
+        let therapies = try XCTUnwrap(sections.first { $0.title == "Current therapies" })
+        XCTAssertEqual(therapies.items.map(\.label), ["Occupational therapy (OT)"], "Past therapies are left out")
+        XCTAssertEqual(therapies.items.first?.value, "Jane Smith, OTR/L, Little Steps; Weekly")
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Member ID: XYZ123"))
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Walgreens: 1 Main St, 555-0199"))
         XCTAssertTrue(IntakeSummary.text(for: child).contains("Pat Example: Parent, 555-0100"))
@@ -118,8 +136,12 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertEqual(child.bloodType, .aPositive)
         XCTAssertEqual(child.allergies.first?.severity, .severe)
         XCTAssertEqual(child.medications.count, 2)
-        XCTAssertEqual(child.providers.map(\.name), ["Dr. Rivera"])
-        XCTAssertEqual(try target.fetchCount(FetchDescriptor<Provider>()), 1)
+        XCTAssertEqual(child.providers.map(\.name).sorted(), ["Dr. Rivera", "Jane Smith, OTR/L"])
+        XCTAssertEqual(try target.fetchCount(FetchDescriptor<Provider>()), 2)
+        let ot = try XCTUnwrap(child.therapies.first { $0.kind == .occupational })
+        XCTAssertEqual(ot.provider?.name, "Jane Smith, OTR/L")
+        XCTAssertEqual(ot.goals, "Handwriting")
+        XCTAssertEqual(child.therapies.first { !$0.isActive }?.displayName, "Vision therapy")
         XCTAssertEqual(child.insurancePolicies.first?.cardFrontImage, Data([1, 2, 3]))
         XCTAssertEqual(child.insurancePolicies.first?.members.count, 2)
         XCTAssertEqual(child.pharmacies.map(\.name), ["Walgreens"])
