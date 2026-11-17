@@ -184,6 +184,59 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertTrue(BackupStatus.isDue(lastBackupAt: now.timeIntervalSince1970 - 31 * 86_400, now: now))
     }
 
+    func testSharingSomeFamilyMembersMergesWithoutTouchingOthers() throws {
+        // Mom's phone.
+        let source = ModelContext(ModelStore.makeContainer(inMemory: true))
+        let (parent, child) = makeFamily(in: source)
+        try source.save()
+        let file = try BackupCrypto.encrypt(
+            BackupArchive(context: source, onlyPeople: [child.id]), password: "correct horse", iterations: 1_000
+        )
+        let shared = try BackupCrypto.decrypt(file, password: "correct horse")
+        XCTAssertEqual(shared.isSharedProfiles, true)
+        XCTAssertEqual(shared.people.map(\.name), ["Kid Example"])
+        XCTAssertFalse(shared.providers.flatMap(\.patientIDs).contains(parent.id), "No one else's id leaves the phone")
+        XCTAssertEqual(shared.pharmacies?.first?.patientIDs, [child.id])
+
+        // The teen's phone already has their own profile with an old record, plus someone else.
+        let target = ModelContext(ModelStore.makeContainer(inMemory: true))
+        let teen = Person(name: "Old Name")
+        target.insert(teen)
+        teen.id = child.id
+        let stale = Medication(name: "Stale")
+        target.insert(stale)
+        stale.person = teen
+        let friend = Person(name: "Someone Else")
+        target.insert(friend)
+        let walgreens = Pharmacy(name: "walgreens")
+        target.insert(walgreens)
+        walgreens.patients = [friend]
+        try target.save()
+
+        let result = try shared.merge(into: target)
+        XCTAssertEqual(result.added, 0)
+        XCTAssertEqual(result.updated, 1)
+        let people = try target.fetch(FetchDescriptor<Person>(sortBy: [SortDescriptor(\.name)]))
+        XCTAssertEqual(people.map(\.name), ["Kid Example", "Someone Else"])
+        let kid = people[0]
+        XCTAssertEqual(kid.medications.map(\.name).sorted(), ["Albuterol", "Amoxicillin"], "Old records replaced")
+        XCTAssertEqual(kid.therapies.first { $0.kind == .occupational }?.provider?.name, "Jane Smith, OTR/L")
+        XCTAssertEqual(try target.fetchCount(FetchDescriptor<Pharmacy>()), 1, "Matched by name")
+        XCTAssertEqual(Set(walgreens.patients.map(\.name)), ["Kid Example", "Someone Else"])
+        XCTAssertEqual(people[1].medications.count, 0)
+
+        // Sharing again doesn't duplicate anything.
+        try shared.merge(into: target)
+        XCTAssertEqual(try target.fetchCount(FetchDescriptor<Person>()), 2)
+        XCTAssertEqual(try target.fetchCount(FetchDescriptor<Provider>()), 2)
+        XCTAssertEqual(kid.medications.count, 2)
+    }
+
+    func testSharedFileNameIsReadable() throws {
+        XCTAssertEqual(ShareProfilesView.fileName(for: ["Emma", "Leo"]), "Health Binder - Emma and Leo.json")
+        XCTAssertEqual(ShareProfilesView.fileName(for: ["A/B"]), "Health Binder - AB.json")
+    }
+
     func testVersionOneBackupRestoresContactsAndPharmacy() throws {
         var archive = BackupArchive()
         archive.version = 1

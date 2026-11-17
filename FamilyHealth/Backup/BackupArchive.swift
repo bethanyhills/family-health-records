@@ -3,7 +3,7 @@ import SwiftData
 
 /// A plain, versioned copy of every record, used for the encrypted backup file.
 struct BackupArchive: Codable, Equatable {
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     var version = BackupArchive.currentVersion
     var exportedAt = Date()
@@ -16,6 +16,9 @@ struct BackupArchive: Codable, Equatable {
     var contacts: [ContactRecord]? = []
     /// Added in version 2.
     var schools: [SchoolRecord]? = []
+    /// Added in version 4. True for a file that shares some family members with another
+    /// phone; it is merged in on import instead of replacing everything.
+    var isSharedProfiles: Bool? = false
 
     struct PersonRecord: Codable, Equatable {
         var id: UUID
@@ -113,9 +116,19 @@ struct BackupArchive: Codable, Equatable {
 }
 
 extension BackupArchive {
-    /// Copies everything in the database into an archive.
-    init(context: ModelContext) throws {
+    /// Copies everything in the database into an archive. With `onlyPeople`, copies just those
+    /// family members and the providers, insurance, pharmacies, contacts and schools they use,
+    /// for sharing with another phone.
+    init(context: ModelContext, onlyPeople: Set<UUID>? = nil) throws {
         let people = try context.fetch(FetchDescriptor<Person>(sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.name)]))
+            .filter { onlyPeople?.contains($0.id) ?? true }
+        let included = Set(people.map(\.id))
+        /// The included people among `linked`, or nil when the record isn't used by any of them.
+        func ids(_ linked: [Person]) -> [UUID]? {
+            let ids = linked.map(\.id).filter { included.contains($0) }.sorted { $0.uuidString < $1.uuidString }
+            return ids.isEmpty && onlyPeople != nil ? nil : ids
+        }
+        isSharedProfiles = onlyPeople != nil
         self.people = people.map { p in
             PersonRecord(
                 id: p.id, name: p.name, preferredName: p.preferredName, dateOfBirth: p.dateOfBirth,
@@ -155,31 +168,36 @@ extension BackupArchive {
                 }
             )
         }
-        providers = try context.fetch(FetchDescriptor<Provider>(sortBy: [SortDescriptor(\.name)])).map {
-            ProviderRecord(id: $0.id, name: $0.name, specialty: $0.specialty, practice: $0.practice, phone: $0.phone,
+        providers = try context.fetch(FetchDescriptor<Provider>(sortBy: [SortDescriptor(\.name)])).compactMap {
+            guard let linked = ids($0.patients) else { return nil }
+            return ProviderRecord(id: $0.id, name: $0.name, specialty: $0.specialty, practice: $0.practice, phone: $0.phone,
                            fax: $0.fax, address: $0.address, portalURL: $0.portalURL, notes: $0.notes,
-                           patientIDs: $0.patients.map(\.id).sorted { $0.uuidString < $1.uuidString })
+                           patientIDs: linked)
         }
-        pharmacies = try context.fetch(FetchDescriptor<Pharmacy>(sortBy: [SortDescriptor(\.name)])).map {
-            PharmacyRecord(name: $0.name, phone: $0.phone, address: $0.address, notes: $0.notes,
+        pharmacies = try context.fetch(FetchDescriptor<Pharmacy>(sortBy: [SortDescriptor(\.name)])).compactMap {
+            guard let linked = ids($0.patients) else { return nil }
+            return PharmacyRecord(name: $0.name, phone: $0.phone, address: $0.address, notes: $0.notes,
                            latitude: $0.latitude, longitude: $0.longitude,
-                           patientIDs: $0.patients.map(\.id).sorted { $0.uuidString < $1.uuidString })
+                           patientIDs: linked)
         }
-        schools = try context.fetch(FetchDescriptor<School>(sortBy: [SortDescriptor(\.name)])).map {
-            SchoolRecord(name: $0.name, address: $0.address, phone: $0.phone, nurseName: $0.nurseName,
+        schools = try context.fetch(FetchDescriptor<School>(sortBy: [SortDescriptor(\.name)])).compactMap {
+            guard let linked = ids($0.students) else { return nil }
+            return SchoolRecord(name: $0.name, address: $0.address, phone: $0.phone, nurseName: $0.nurseName,
                          nursePhone: $0.nursePhone, nurseEmail: $0.nurseEmail, notes: $0.notes,
-                         studentIDs: $0.students.map(\.id).sorted { $0.uuidString < $1.uuidString })
+                         studentIDs: linked)
         }
-        contacts = try context.fetch(FetchDescriptor<EmergencyContact>(sortBy: [SortDescriptor(\.name)])).map {
-            ContactRecord(name: $0.name, relationship: $0.relationship, phone: $0.phone, notes: $0.notes,
-                          personIDs: $0.people.map(\.id).sorted { $0.uuidString < $1.uuidString })
+        contacts = try context.fetch(FetchDescriptor<EmergencyContact>(sortBy: [SortDescriptor(\.name)])).compactMap {
+            guard let linked = ids($0.people) else { return nil }
+            return ContactRecord(name: $0.name, relationship: $0.relationship, phone: $0.phone, notes: $0.notes,
+                          personIDs: linked)
         }
-        insurancePolicies = try context.fetch(FetchDescriptor<InsurancePolicy>(sortBy: [SortDescriptor(\.carrier)])).map {
-            InsuranceRecord(kind: $0.kindRaw, carrier: $0.carrier, planName: $0.planName, memberID: $0.memberID,
+        insurancePolicies = try context.fetch(FetchDescriptor<InsurancePolicy>(sortBy: [SortDescriptor(\.carrier)])).compactMap {
+            guard let linked = ids($0.members) else { return nil }
+            return InsuranceRecord(kind: $0.kindRaw, carrier: $0.carrier, planName: $0.planName, memberID: $0.memberID,
                             groupNumber: $0.groupNumber, subscriberName: $0.subscriberName, phone: $0.phone,
                             subscriberDateOfBirth: $0.subscriberDateOfBirth, rxBIN: $0.rxBIN, rxPCN: $0.rxPCN,
                             rxGroup: $0.rxGroup, notes: $0.notes, cardFront: $0.cardFrontImage,
-                            cardBack: $0.cardBackImage, memberIDs: $0.members.map(\.id).sorted { $0.uuidString < $1.uuidString })
+                            cardBack: $0.cardBackImage, memberIDs: linked)
         }
     }
 
@@ -197,86 +215,11 @@ extension BackupArchive {
         var peopleByID: [UUID: Person] = [:]
         var therapiesByProviderID: [UUID: [Therapy]] = [:]
         for record in people {
-            let person = Person(name: record.name, dateOfBirth: record.dateOfBirth, sortOrder: record.sortOrder)
+            let person = Person(name: record.name)
             context.insert(person)
             person.id = record.id
-            person.preferredName = record.preferredName
-            person.sexRaw = record.sex
-            person.bloodTypeRaw = record.bloodType
-            person.height = record.height
-            person.weight = record.weight
-            person.preferredPharmacy = record.preferredPharmacy
-            person.notes = record.notes
-            person.photoData = record.photo
-            person.createdAt = record.createdAt
-            person.schoolGrade = record.schoolGrade ?? ""
-            person.teacherName = record.teacherName ?? ""
-            person.teacherEmail = record.teacherEmail ?? ""
-            person.teacherPhone = record.teacherPhone ?? ""
-            peopleByID[record.id] = person
-
-            for r in record.medications {
-                let item = Medication(name: r.name, dose: r.dose, frequency: r.frequency, isActive: r.isActive)
-                context.insert(item)
-                item.reason = r.reason
-                item.prescriber = r.prescriber
-                item.pharmacy = r.pharmacy
-                item.notes = r.notes
-                item.startDate = r.startDate
-                item.endDate = r.endDate
-                item.person = person
-            }
-            for r in record.allergies {
-                let item = Allergy(allergen: r.allergen, reaction: r.reaction)
-                context.insert(item)
-                item.kindRaw = r.kind
-                item.severityRaw = r.severity
-                item.notes = r.notes
-                item.person = person
-            }
-            for r in record.conditions {
-                let item = Condition(name: r.name, diagnosedDate: r.diagnosedDate)
-                context.insert(item)
-                item.statusRaw = r.status
-                item.treatingProvider = r.treatingProvider
-                item.notes = r.notes
-                item.person = person
-            }
-            for r in record.procedures {
-                let item = Procedure(name: r.name, date: r.date)
-                context.insert(item)
-                item.facility = r.facility
-                item.surgeon = r.surgeon
-                item.notes = r.notes
-                item.person = person
-            }
-            for r in record.immunizations {
-                let item = Immunization(vaccine: r.vaccine, date: r.date, doseNumber: r.doseNumber)
-                context.insert(item)
-                item.location = r.location
-                item.lotNumber = r.lotNumber
-                item.notes = r.notes
-                item.person = person
-            }
-            for r in record.familyHistory {
-                let item = FamilyHistoryItem(relative: r.relative, condition: r.condition)
-                context.insert(item)
-                item.notes = r.notes
-                item.person = person
-            }
-            for r in record.therapies ?? [] {
-                let item = Therapy(kind: TherapyKind(rawValue: r.kind) ?? .other, isActive: r.isActive)
-                context.insert(item)
-                item.kindRaw = r.kind
-                item.customName = r.customName
-                item.frequency = r.frequency
-                item.goals = r.goals
-                item.notes = r.notes
-                item.startDate = r.startDate
-                item.endDate = r.endDate
-                item.person = person
-                if let providerID = r.providerID { therapiesByProviderID[providerID, default: []].append(item) }
-            }
+            fill(person, from: record)
+            insertRecords(of: record, for: person, in: context, therapiesByProviderID: &therapiesByProviderID)
             for r in record.emergencyContacts {
                 // Version 1 backups: each contact belonged to one person.
                 let item = EmergencyContact(name: r.name, relationship: r.relationship, phone: r.phone)
@@ -284,73 +227,317 @@ extension BackupArchive {
                 item.notes = r.notes
                 item.people = [person]
             }
+            peopleByID[record.id] = person
         }
 
         for r in providers {
-            let provider = Provider(name: r.name, specialty: r.specialty)
+            let provider = Provider(name: r.name)
             context.insert(provider)
-            provider.practice = r.practice
-            provider.phone = r.phone
-            provider.fax = r.fax
-            provider.address = r.address
-            provider.portalURL = r.portalURL
-            provider.notes = r.notes
+            if let id = r.id { provider.id = id }
+            fill(provider, from: r)
             provider.patients = r.patientIDs.compactMap { peopleByID[$0] }
             if let id = r.id {
-                provider.id = id
                 for therapy in therapiesByProviderID[id] ?? [] { therapy.provider = provider }
             }
         }
-
         for r in insurancePolicies {
             let policy = InsurancePolicy(carrier: r.carrier)
             context.insert(policy)
-            policy.kindRaw = r.kind
-            policy.planName = r.planName
-            policy.memberID = r.memberID
-            policy.groupNumber = r.groupNumber
-            policy.subscriberName = r.subscriberName
-            policy.subscriberDateOfBirth = r.subscriberDateOfBirth
-            policy.phone = r.phone
-            policy.rxBIN = r.rxBIN
-            policy.rxPCN = r.rxPCN
-            policy.rxGroup = r.rxGroup
-            policy.notes = r.notes
-            policy.cardFrontImage = r.cardFront
-            policy.cardBackImage = r.cardBack
+            fill(policy, from: r)
             policy.members = r.memberIDs.compactMap { peopleByID[$0] }
         }
-
         for r in pharmacies ?? [] {
-            let pharmacy = Pharmacy(name: r.name, phone: r.phone, address: r.address)
+            let pharmacy = Pharmacy(name: r.name)
             context.insert(pharmacy)
-            pharmacy.notes = r.notes
-            pharmacy.latitude = r.latitude
-            pharmacy.longitude = r.longitude
+            fill(pharmacy, from: r)
             pharmacy.patients = r.patientIDs.compactMap { peopleByID[$0] }
         }
-
         for r in schools ?? [] {
             let school = School(name: r.name)
             context.insert(school)
-            school.address = r.address
-            school.phone = r.phone
-            school.nurseName = r.nurseName
-            school.nursePhone = r.nursePhone
-            school.nurseEmail = r.nurseEmail
-            school.notes = r.notes
+            fill(school, from: r)
             school.students = r.studentIDs.compactMap { peopleByID[$0] }
         }
-
         for r in contacts ?? [] {
             let contact = EmergencyContact(name: r.name, relationship: r.relationship, phone: r.phone)
             context.insert(contact)
-            contact.notes = r.notes
+            fill(contact, from: r)
             contact.people = r.personIDs.compactMap { peopleByID[$0] }
         }
 
         try context.save()
         // Turns a version 1 "preferred pharmacy" into a shared pharmacy.
         try ModelStore.upgradeData(in: context)
+    }
+
+    /// Adds the family members in this archive, or updates them if they are already here,
+    /// without touching anyone else. Used for a file someone shared from their phone.
+    ///
+    /// For each incoming person, their own records are replaced by the file's copy. Shared
+    /// records are matched to ones already here (providers by id, then name; insurance by
+    /// carrier and member ID; pharmacies and schools by name; contacts by name and phone),
+    /// updated from the file, and linked exactly as the file says.
+    /// Returns how many people were added and how many were updated.
+    @discardableResult
+    func merge(into context: ModelContext) throws -> (added: Int, updated: Int) {
+        let existingPeople = Dictionary(
+            try context.fetch(FetchDescriptor<Person>()).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
+        )
+        let nextSortOrder = (existingPeople.values.map(\.sortOrder).max() ?? -1) + 1
+        var peopleByID: [UUID: Person] = [:]
+        var therapiesByProviderID: [UUID: [Therapy]] = [:]
+        var added = 0
+        for (index, record) in people.enumerated() {
+            let person: Person
+            if let existing = existingPeople[record.id] {
+                person = existing
+                let sortOrder = existing.sortOrder
+                for item in person.medications { context.delete(item) }
+                for item in person.allergies { context.delete(item) }
+                for item in person.conditions { context.delete(item) }
+                for item in person.procedures { context.delete(item) }
+                for item in person.immunizations { context.delete(item) }
+                for item in person.familyHistory { context.delete(item) }
+                for item in person.therapies { context.delete(item) }
+                fill(person, from: record)
+                // Keep this phone's order of the family.
+                person.sortOrder = sortOrder
+            } else {
+                person = Person(name: record.name)
+                context.insert(person)
+                person.id = record.id
+                fill(person, from: record)
+                person.sortOrder = nextSortOrder + index
+                added += 1
+            }
+            insertRecords(of: record, for: person, in: context, therapiesByProviderID: &therapiesByProviderID)
+            peopleByID[record.id] = person
+        }
+        try context.save()
+
+        let incoming = Array(peopleByID.values)
+        /// Points `linked` (a shared record's people) at exactly the file's incoming people,
+        /// leaving anyone else on this phone linked as they were.
+        func relink(_ linked: inout [Person], to ids: [UUID]) {
+            linked.removeAll { person in incoming.contains { $0.id == person.id } }
+            linked.append(contentsOf: ids.compactMap { peopleByID[$0] })
+        }
+        func same(_ a: String, _ b: String) -> Bool {
+            a.trimmed.localizedCaseInsensitiveCompare(b.trimmed) == .orderedSame
+        }
+
+        // Drop the incoming people from shared records first, so anything the sender
+        // removed them from is removed here too.
+        for provider in try context.fetch(FetchDescriptor<Provider>()) { relink(&provider.patients, to: []) }
+        for policy in try context.fetch(FetchDescriptor<InsurancePolicy>()) { relink(&policy.members, to: []) }
+        for pharmacy in try context.fetch(FetchDescriptor<Pharmacy>()) { relink(&pharmacy.patients, to: []) }
+        for school in try context.fetch(FetchDescriptor<School>()) { relink(&school.students, to: []) }
+        for contact in try context.fetch(FetchDescriptor<EmergencyContact>()) { relink(&contact.people, to: []) }
+
+        let providersHere = try context.fetch(FetchDescriptor<Provider>())
+        for r in providers {
+            let provider = providersHere.first { r.id != nil && $0.id == r.id }
+                ?? providersHere.first { same($0.name, r.name) }
+                ?? {
+                    let new = Provider(name: r.name)
+                    context.insert(new)
+                    if let id = r.id { new.id = id }
+                    return new
+                }()
+            fill(provider, from: r)
+            relink(&provider.patients, to: r.patientIDs)
+            if let id = r.id {
+                for therapy in therapiesByProviderID[id] ?? [] { therapy.provider = provider }
+            }
+        }
+        let policiesHere = try context.fetch(FetchDescriptor<InsurancePolicy>())
+        for r in insurancePolicies {
+            let policy = policiesHere.first { same($0.carrier, r.carrier) && same($0.memberID, r.memberID) } ?? {
+                let new = InsurancePolicy(carrier: r.carrier)
+                context.insert(new)
+                return new
+            }()
+            fill(policy, from: r)
+            relink(&policy.members, to: r.memberIDs)
+        }
+        let pharmaciesHere = try context.fetch(FetchDescriptor<Pharmacy>())
+        for r in pharmacies ?? [] {
+            let pharmacy = pharmaciesHere.first { same($0.name, r.name) } ?? {
+                let new = Pharmacy(name: r.name)
+                context.insert(new)
+                return new
+            }()
+            fill(pharmacy, from: r)
+            relink(&pharmacy.patients, to: r.patientIDs)
+        }
+        let schoolsHere = try context.fetch(FetchDescriptor<School>())
+        for r in schools ?? [] {
+            let school = schoolsHere.first { same($0.name, r.name) } ?? {
+                let new = School(name: r.name)
+                context.insert(new)
+                return new
+            }()
+            fill(school, from: r)
+            relink(&school.students, to: r.studentIDs)
+        }
+        let contactsHere = try context.fetch(FetchDescriptor<EmergencyContact>())
+        for r in contacts ?? [] {
+            let contact = contactsHere.first { same($0.name, r.name) && same($0.phone, r.phone) } ?? {
+                let new = EmergencyContact(name: r.name)
+                context.insert(new)
+                return new
+            }()
+            fill(contact, from: r)
+            relink(&contact.people, to: r.personIDs)
+        }
+
+        try context.save()
+        try ModelStore.upgradeData(in: context)
+        return (added, people.count - added)
+    }
+
+    // MARK: Filling records from the archive
+
+    private func fill(_ person: Person, from record: PersonRecord) {
+        person.name = record.name
+        person.dateOfBirth = record.dateOfBirth
+        person.sortOrder = record.sortOrder
+        person.preferredName = record.preferredName
+        person.sexRaw = record.sex
+        person.bloodTypeRaw = record.bloodType
+        person.height = record.height
+        person.weight = record.weight
+        person.preferredPharmacy = record.preferredPharmacy
+        person.notes = record.notes
+        person.photoData = record.photo
+        person.createdAt = record.createdAt
+        person.schoolGrade = record.schoolGrade ?? ""
+        person.teacherName = record.teacherName ?? ""
+        person.teacherEmail = record.teacherEmail ?? ""
+        person.teacherPhone = record.teacherPhone ?? ""
+    }
+
+    /// Inserts the person's own records: medications, allergies, conditions, procedures,
+    /// immunizations, family history and therapies.
+    private func insertRecords(
+        of record: PersonRecord, for person: Person, in context: ModelContext,
+        therapiesByProviderID: inout [UUID: [Therapy]]
+    ) {
+        for r in record.medications {
+            let item = Medication(name: r.name, dose: r.dose, frequency: r.frequency, isActive: r.isActive)
+            context.insert(item)
+            item.reason = r.reason
+            item.prescriber = r.prescriber
+            item.pharmacy = r.pharmacy
+            item.notes = r.notes
+            item.startDate = r.startDate
+            item.endDate = r.endDate
+            item.person = person
+        }
+        for r in record.allergies {
+            let item = Allergy(allergen: r.allergen, reaction: r.reaction)
+            context.insert(item)
+            item.kindRaw = r.kind
+            item.severityRaw = r.severity
+            item.notes = r.notes
+            item.person = person
+        }
+        for r in record.conditions {
+            let item = Condition(name: r.name, diagnosedDate: r.diagnosedDate)
+            context.insert(item)
+            item.statusRaw = r.status
+            item.treatingProvider = r.treatingProvider
+            item.notes = r.notes
+            item.person = person
+        }
+        for r in record.procedures {
+            let item = Procedure(name: r.name, date: r.date)
+            context.insert(item)
+            item.facility = r.facility
+            item.surgeon = r.surgeon
+            item.notes = r.notes
+            item.person = person
+        }
+        for r in record.immunizations {
+            let item = Immunization(vaccine: r.vaccine, date: r.date, doseNumber: r.doseNumber)
+            context.insert(item)
+            item.location = r.location
+            item.lotNumber = r.lotNumber
+            item.notes = r.notes
+            item.person = person
+        }
+        for r in record.familyHistory {
+            let item = FamilyHistoryItem(relative: r.relative, condition: r.condition)
+            context.insert(item)
+            item.notes = r.notes
+            item.person = person
+        }
+        for r in record.therapies ?? [] {
+            let item = Therapy(kind: TherapyKind(rawValue: r.kind) ?? .other, isActive: r.isActive)
+            context.insert(item)
+            item.kindRaw = r.kind
+            item.customName = r.customName
+            item.frequency = r.frequency
+            item.goals = r.goals
+            item.notes = r.notes
+            item.startDate = r.startDate
+            item.endDate = r.endDate
+            item.person = person
+            if let providerID = r.providerID { therapiesByProviderID[providerID, default: []].append(item) }
+        }
+    }
+
+    private func fill(_ provider: Provider, from r: ProviderRecord) {
+        provider.name = r.name
+        provider.specialty = r.specialty
+        provider.practice = r.practice
+        provider.phone = r.phone
+        provider.fax = r.fax
+        provider.address = r.address
+        provider.portalURL = r.portalURL
+        provider.notes = r.notes
+    }
+
+    private func fill(_ policy: InsurancePolicy, from r: InsuranceRecord) {
+        policy.carrier = r.carrier
+        policy.kindRaw = r.kind
+        policy.planName = r.planName
+        policy.memberID = r.memberID
+        policy.groupNumber = r.groupNumber
+        policy.subscriberName = r.subscriberName
+        policy.subscriberDateOfBirth = r.subscriberDateOfBirth
+        policy.phone = r.phone
+        policy.rxBIN = r.rxBIN
+        policy.rxPCN = r.rxPCN
+        policy.rxGroup = r.rxGroup
+        policy.notes = r.notes
+        policy.cardFrontImage = r.cardFront
+        policy.cardBackImage = r.cardBack
+    }
+
+    private func fill(_ pharmacy: Pharmacy, from r: PharmacyRecord) {
+        pharmacy.name = r.name
+        pharmacy.phone = r.phone
+        pharmacy.address = r.address
+        pharmacy.notes = r.notes
+        pharmacy.latitude = r.latitude
+        pharmacy.longitude = r.longitude
+    }
+
+    private func fill(_ school: School, from r: SchoolRecord) {
+        school.name = r.name
+        school.address = r.address
+        school.phone = r.phone
+        school.nurseName = r.nurseName
+        school.nursePhone = r.nursePhone
+        school.nurseEmail = r.nurseEmail
+        school.notes = r.notes
+    }
+
+    private func fill(_ contact: EmergencyContact, from r: ContactRecord) {
+        contact.name = r.name
+        contact.relationship = r.relationship
+        contact.phone = r.phone
+        contact.notes = r.notes
     }
 }
