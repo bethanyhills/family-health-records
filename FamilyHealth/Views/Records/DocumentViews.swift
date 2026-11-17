@@ -180,6 +180,7 @@ struct DocumentDetailView: View {
             switch action {
             case .vaccines: VaccineImportView(person: person, document: document)
             case .prescription: PrescriptionImportView(person: person, document: document)
+            case .visitSummary: VisitSummaryImportView(person: person, document: document)
             }
         }
         .navigationTitle(document.displayTitle)
@@ -412,7 +413,7 @@ struct DocumentEditView: View {
 
 /// Saving what a document says into the right part of the app, after the person checks it.
 enum DocumentImport: String, Identifiable {
-    case vaccines, prescription
+    case vaccines, prescription, visitSummary
 
     var id: String { rawValue }
 
@@ -420,6 +421,7 @@ enum DocumentImport: String, Identifiable {
         switch self {
         case .vaccines: "Add these vaccines to Immunizations"
         case .prescription: "Add this medication"
+        case .visitSummary: "Add a visit note from this summary"
         }
     }
 
@@ -427,6 +429,7 @@ enum DocumentImport: String, Identifiable {
         switch self {
         case .vaccines: "syringe"
         case .prescription: "pills"
+        case .visitSummary: "note.text.badge.plus"
         }
     }
 
@@ -435,10 +438,13 @@ enum DocumentImport: String, Identifiable {
         switch document.kind {
         case .vaccineRecord: return .vaccines
         case .prescription: return .prescription
+        case .visitSummary: return .visitSummary
         default: break
         }
         let text = document.recognizedText
         if VaccineRecordParser.looksLikeVaccineRecord(text) { return .vaccines }
+        // A visit summary often lists medications too, so it's checked before prescriptions.
+        if VisitSummaryParser.looksLikeVisitSummary(text) { return .visitSummary }
         if PrescriptionParser.looksLikePrescription(text) { return .prescription }
         return nil
     }

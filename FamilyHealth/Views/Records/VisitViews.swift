@@ -46,6 +46,10 @@ private extension String {
 struct VisitEditView: View {
     let person: Person
     let visit: Visit?
+    /// What was read from an after-visit summary, filled in for the person to check.
+    var draft: VisitSummaryParser.Result? = nil
+    /// The document the draft was read from.
+    var draftSource: String? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Provider.name) private var providers: [Provider]
@@ -55,10 +59,17 @@ struct VisitEditView: View {
     @State private var notes = ""
     @State private var followUp = ""
     @State private var followUpDate: Date?
+    @State private var newConditions: Set<String> = []
     @State private var didLoad = false
 
     var body: some View {
         EditorForm(title: visit == nil ? "New visit" : "Edit visit", canSave: true, onSave: save) {
+            if let draftSource {
+                Section {
+                } footer: {
+                    Text("Filled in from \(draftSource). Check each field against the summary before saving.")
+                }
+            }
             Section {
                 DateField(label: "Date", date: $date)
                 ProviderPicker(person: person, selection: $providerChoice, label: "Seen by")
@@ -75,20 +86,68 @@ struct VisitEditView: View {
             } header: {
                 Text("Follow-up")
             } footer: {
-                Text("New medications or diagnoses still go in their own sections, so they appear on the intake summary.")
+                if draft?.diagnoses.isEmpty ?? true {
+                    Text("New medications or diagnoses still go in their own sections, so they appear on the intake summary.")
+                }
+            }
+            if let diagnoses = draft?.diagnoses, !diagnoses.isEmpty {
+                Section {
+                    ForEach(diagnoses, id: \.self) { diagnosis in
+                        if isAlreadyACondition(diagnosis) {
+                            LabeledContent(diagnosis) {
+                                Text("Already listed").foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Toggle(diagnosis, isOn: Binding(
+                                get: { newConditions.contains(diagnosis) },
+                                set: { if $0 { newConditions.insert(diagnosis) } else { newConditions.remove(diagnosis) } }
+                            ))
+                        }
+                    }
+                } header: {
+                    Text("Add to conditions")
+                } footer: {
+                    Text("Turn on the diagnoses that are ongoing, so they show on the intake summary. A one-time illness can stay in this note.")
+                }
             }
         }
         .onAppear {
             guard !didLoad else { return }
             didLoad = true
-            guard let visit else { return }
-            date = visit.date
-            providerChoice = visit.provider?.id.uuidString ?? ""
-            reason = visit.reason
-            notes = visit.notes
-            followUp = visit.followUp
-            followUpDate = visit.followUpDate
+            if let visit {
+                date = visit.date
+                providerChoice = visit.provider?.id.uuidString ?? ""
+                reason = visit.reason
+                notes = visit.notes
+                followUp = visit.followUp
+                followUpDate = visit.followUpDate
+            }
+            if let draft { apply(draft) }
         }
+    }
+
+    private func apply(_ draft: VisitSummaryParser.Result) {
+        if let visitDate = draft.date { date = visitDate }
+        if reason.isBlank { reason = draft.reason }
+        if !draft.provider.isEmpty, providerChoice.isEmpty {
+            let match = PrescriptionParser.matchProvider(
+                draft.provider, existing: providers.map(\.name), preferred: person.providers.map(\.name))
+            if let match, let provider = providers.first(where: { $0.name == match }) {
+                providerChoice = provider.id.uuidString
+            }
+        }
+        var lines: [String] = []
+        if providerChoice.isEmpty, !draft.provider.isEmpty { lines.append("Seen by \(draft.provider)") }
+        if !draft.notes.isEmpty { lines.append(draft.notes) }
+        if let draftSource { lines.append("From \(draftSource)") }
+        let added = lines.joined(separator: "\n\n")
+        if !added.isEmpty { notes = notes.isBlank ? added : notes.trimmed + "\n\n" + added }
+        if followUp.isBlank { followUp = draft.followUp }
+        if followUpDate == nil { followUpDate = draft.followUpDate }
+    }
+
+    private func isAlreadyACondition(_ diagnosis: String) -> Bool {
+        person.conditions.contains { $0.name.trimmed.localizedCaseInsensitiveCompare(diagnosis.trimmed) == .orderedSame }
     }
 
     private func save() {
@@ -104,5 +163,13 @@ struct VisitEditView: View {
         target.followUp = followUp.trimmed
         target.followUpDate = followUpDate
         target.provider = ProviderPicker.resolve(providerChoice, for: person, in: providers)
+
+        for diagnosis in draft?.diagnoses ?? [] where newConditions.contains(diagnosis) && !isAlreadyACondition(diagnosis) {
+            let condition = Condition(name: diagnosis.trimmed, diagnosedDate: date)
+            condition.treatingProvider = target.provider?.name ?? ""
+            if let draftSource { condition.notes = "From \(draftSource)" }
+            modelContext.insert(condition)
+            condition.person = person
+        }
     }
 }

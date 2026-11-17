@@ -367,25 +367,32 @@ enum PrescriptionParser {
             }
         }
         for row in rows {
-            let range = NSRange(row.startIndex..., in: row)
-            if let match = doctorPrefix.firstMatch(in: row, range: range) {
-                // "123 OAK DR" is a street, not a doctor.
-                let before = (row as NSString).substring(to: match.range.location)
-                if !before.contains(where: \.isNumber),
-                   let name = displayName((row as NSString).substring(with: match.range(at: 1)), row: row) {
-                    return name
-                }
-            }
-            if let match = credentialName.firstMatch(in: row, range: range),
-               let name = displayName((row as NSString).substring(with: match.range(at: 1)), row: row) {
-                return name
-            }
+            if let name = providerName(in: row) { return name }
         }
         return ""
     }
 
+    /// A provider's name written in a row as "Dr. Jane Smith" or "Jane Smith, MD".
+    static func providerName(in row: String) -> String? {
+        let range = NSRange(row.startIndex..., in: row)
+        if let match = doctorPrefix.firstMatch(in: row, range: range) {
+            // "123 OAK DR" is a street, not a doctor.
+            let before = (row as NSString).substring(to: match.range.location)
+            if !before.contains(where: \.isNumber),
+               let name = displayName((row as NSString).substring(with: match.range(at: 1)), row: row) {
+                return name
+            }
+        }
+        if let match = credentialName.firstMatch(in: row, range: range),
+           let name = displayName((row as NSString).substring(with: match.range(at: 1)), row: row) {
+            return name
+        }
+        return nil
+    }
+
     /// "Dr. Jane Smith", or "Jane Smith, NP" for a nurse practitioner or physician assistant.
-    private static func displayName(_ raw: String, row: String) -> String? {
+    /// Also used for the provider on a visit summary.
+    static func displayName(_ raw: String, row: String) -> String? {
         let name = personName(raw)
         guard !name.isEmpty else { return nil }
         let range = NSRange(row.startIndex..., in: row)
