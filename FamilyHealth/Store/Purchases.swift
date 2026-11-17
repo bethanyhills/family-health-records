@@ -124,7 +124,13 @@ final class Purchases {
     private func handle(_ verification: VerificationResult<StoreKit.Transaction>) async {
         guard case .verified(let transaction) = verification else { return }
         if transaction.productID == Self.unlockProductID {
-            setUnlocked(transaction.revocationDate == nil)
+            if transaction.revocationDate == nil {
+                setUnlocked(true)
+            } else {
+                // A refund, or a family member leaving the Family Sharing group.
+                // Someone may still own it another way, so check everything.
+                await refresh()
+            }
         }
         await transaction.finish()
     }
