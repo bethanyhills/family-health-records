@@ -29,6 +29,10 @@ struct MedicationsView: View {
 struct MedicationEditView: View {
     let person: Person
     let medication: Medication?
+    /// What was read from a prescription label, filled in for the person to check.
+    var draft: PrescriptionParser.Result? = nil
+    /// The document the draft was read from.
+    var draftSource: String? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Provider.name) private var providers: [Provider]
@@ -48,7 +52,15 @@ struct MedicationEditView: View {
     @State private var didLoad = false
 
     var body: some View {
-        EditorForm(title: medication == nil ? "New medication" : "Edit medication", canSave: !name.isBlank, onSave: save) {
+        EditorForm(title: title, canSave: !name.isBlank, onSave: save) {
+            if let draftSource {
+                Section {
+                } footer: {
+                    Text(medication == nil
+                         ? "Filled in from \(draftSource). Check each field against the label before saving."
+                         : "Updates from \(draftSource) are filled in. Check each field against the label before saving.")
+                }
+            }
             Section {
                 TextField("Name (e.g. Amoxicillin)", text: $name)
                 TextField("Dose (e.g. 250 mg)", text: $dose)
@@ -91,22 +103,59 @@ struct MedicationEditView: View {
         .onAppear {
             guard !didLoad else { return }
             didLoad = true
-            if medication == nil {
-                // Most people use one pharmacy; start with it filled in.
-                if person.pharmacies.count == 1 { pharmacy = person.pharmacies[0].name }
-                return
-            }
-            guard let medication else { return }
-            name = medication.name
-            dose = medication.dose
-            frequency = medication.frequency
-            reason = medication.reason
-            prescriber = medication.prescriber
-            pharmacy = medication.pharmacy
-            startDate = medication.startDate
-            endDate = medication.endDate
-            isActive = medication.isActive
-            notes = medication.notes
+            load()
+            if let draft { apply(draft) }
+        }
+    }
+
+    private var title: String {
+        if medication == nil { return "New medication" }
+        return draft == nil ? "Edit medication" : "Update medication"
+    }
+
+    private func load() {
+        if medication == nil {
+            // Most people use one pharmacy; start with it filled in.
+            if person.pharmacies.count == 1 { pharmacy = person.pharmacies[0].name }
+            return
+        }
+        guard let medication else { return }
+        name = medication.name
+        dose = medication.dose
+        frequency = medication.frequency
+        reason = medication.reason
+        prescriber = medication.prescriber
+        pharmacy = medication.pharmacy
+        startDate = medication.startDate
+        endDate = medication.endDate
+        isActive = medication.isActive
+        notes = medication.notes
+    }
+
+    /// Puts what the label says over what's saved. A new label is the newest word on
+    /// dose, directions, prescriber and pharmacy; the name and reason are kept if already set.
+    private func apply(_ draft: PrescriptionParser.Result) {
+        if name.isBlank { name = draft.name }
+        if !draft.dose.isEmpty { dose = draft.dose }
+        if !draft.directions.isEmpty { frequency = draft.directions }
+        if reason.isBlank { reason = draft.reason }
+        if !draft.prescriber.isEmpty {
+            prescriber = PrescriptionParser.matchProvider(
+                draft.prescriber, existing: providers.map(\.name), preferred: person.providers.map(\.name)
+            ) ?? draft.prescriber
+        }
+        if !draft.pharmacy.isEmpty {
+            pharmacy = PrescriptionParser.matchPharmacy(
+                draft.pharmacy, existing: pharmacies.map(\.name), preferred: person.pharmacies.map(\.name)
+            ) ?? draft.pharmacy
+        }
+        if medication == nil, startDate == nil { startDate = draft.dateFilled }
+        isActive = true
+        let details = draft.labelDetails
+        let line = [draftSource.map { "From \($0)" }, details.isEmpty ? nil : details]
+            .compactMap { $0 }.joined(separator: ": ")
+        if !line.isEmpty, !notes.contains(line) {
+            notes = notes.isBlank ? line : notes.trimmed + "\n" + line
         }
     }
 

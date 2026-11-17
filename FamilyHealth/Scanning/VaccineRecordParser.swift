@@ -125,76 +125,16 @@ enum VaccineRecordParser {
         return matches.sorted { $0.location < $1.location }
     }
 
-    private static let months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-
-    private static let numericDate = try! NSRegularExpression(
-        pattern: #"(?<!\d)(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{4}|\d{2})(?!\d)"#
-    )
-    private static let isoDate = try! NSRegularExpression(
-        pattern: #"(?<!\d)(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})(?!\d)"#
-    )
-    private static let namedDate = try! NSRegularExpression(
-        pattern: #"(?<![A-Za-z])(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})"#,
-        options: [.caseInsensitive]
-    )
-
     private static func dateMatches(in row: String, dateOfBirth: Date?, now: Date) -> [DateMatch] {
-        let full = NSRange(row.startIndex..., in: row)
-        let ns = row as NSString
-        var results: [DateMatch] = []
-        var claimed: [NSRange] = []
-        func add(_ range: NSRange, year: Int, month: Int, day: Int) {
-            guard !claimed.contains(where: { NSIntersectionRange($0, range).length > 0 }),
-                  let date = makeDate(year: year, month: month, day: day),
-                  isPlausible(date, dateOfBirth: dateOfBirth, now: now) else { return }
-            claimed.append(range)
-            results.append(DateMatch(date: date, location: range.location))
-        }
-        for m in isoDate.matches(in: row, range: full) {
-            add(m.range, year: Int(ns.substring(with: m.range(at: 1)))!,
-                month: Int(ns.substring(with: m.range(at: 2)))!, day: Int(ns.substring(with: m.range(at: 3)))!)
-        }
-        for m in namedDate.matches(in: row, range: full) {
-            let month = (months.firstIndex(of: String(ns.substring(with: m.range(at: 1)).lowercased().prefix(3))) ?? -1) + 1
-            add(m.range, year: Int(ns.substring(with: m.range(at: 3)))!, month: month,
-                day: Int(ns.substring(with: m.range(at: 2)))!)
-        }
-        for m in numericDate.matches(in: row, range: full) {
-            var year = Int(ns.substring(with: m.range(at: 3)))!
-            if year < 100 {
-                let thisYear = Calendar(identifier: .gregorian).component(.year, from: now) % 100
-                year += year <= thisYear ? 2000 : 1900
-            }
-            add(m.range, year: year, month: Int(ns.substring(with: m.range(at: 1)))!,
-                day: Int(ns.substring(with: m.range(at: 2)))!)
-        }
-        return results.sorted { $0.location < $1.location }
-    }
-
-    private static func makeDate(year: Int, month: Int, day: Int) -> Date? {
-        guard (1...12).contains(month), (1...31).contains(day) else { return nil }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .current
-        let components = DateComponents(year: year, month: month, day: day, hour: 12)
-        guard let date = calendar.date(from: components),
-              calendar.component(.day, from: date) == day else { return nil }
-        return date
-    }
-
-    /// Not before the person was born (a hepatitis B shot can be the day of birth) and not in the future.
-    private static func isPlausible(_ date: Date, dateOfBirth: Date?, now: Date) -> Bool {
-        guard date <= now.addingTimeInterval(86_400) else { return false }
-        if let dateOfBirth { return date >= dateOfBirth.addingTimeInterval(-86_400) }
-        return date >= Date(timeIntervalSince1970: -2_208_988_800) // 1900
+        // Not before the person was born (a hepatitis B shot can be the day of birth) and not in the future.
+        let earliest = dateOfBirth?.addingTimeInterval(-86_400)
+        return DateScanner.dates(in: row, earliest: earliest, latest: now.addingTimeInterval(86_400), now: now)
+            .map { DateMatch(date: $0.date, location: $0.location) }
     }
 
     private static func isOnlyDatesAndNumbers(_ row: String) -> Bool {
-        row.rangeOfCharacter(from: .letters) == nil
-            || namedDate.firstMatch(in: row, range: NSRange(row.startIndex..., in: row)) != nil
+        row.rangeOfCharacter(from: .letters) == nil || DateScanner.hasNamedDate(row)
     }
 
-    private static func dayKey(_ date: Date) -> String {
-        let parts = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
-        return "\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)"
-    }
+    private static func dayKey(_ date: Date) -> String { DateScanner.dayKey(date) }
 }
