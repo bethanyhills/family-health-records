@@ -7,6 +7,8 @@ import SwiftUI
 struct SchoolSection: View {
     let person: Person
     let onEdit: () -> Void
+    /// Opens the new-document sheet for the plan, from the page (see above).
+    let onAddPlanDocument: (DocumentKind) -> Void
     @Environment(\.recordAccess) private var access
 
     var body: some View {
@@ -19,6 +21,7 @@ struct SchoolSection: View {
                 InfoRow("Teacher", person.teacherName)
                 InfoRow("Teacher email", person.teacherEmail)
                 InfoRow("Teacher phone", person.teacherPhone)
+                planRow
                 if let school = person.school {
                     InfoRow("School phone", school.phone)
                     InfoRow("School address", school.address)
@@ -34,6 +37,34 @@ struct SchoolSection: View {
             }
         } header: {
             Text("School")
+        }
+    }
+
+    /// "Active IEP", linked to the newest IEP in Documents.
+    @ViewBuilder
+    private var planRow: some View {
+        let plan = person.schoolPlan
+        if let kind = plan.documentKind {
+            if let document = person.schoolPlanDocument {
+                NavigationLink {
+                    DocumentDetailView(person: person, document: document)
+                } label: {
+                    LabeledContent {
+                        Text(document.date.map { "Dated \($0.formDate)" } ?? "View")
+                    } label: {
+                        Label(plan.activeLabel, systemImage: "doc.text.fill")
+                    }
+                }
+            } else {
+                Label(plan.activeLabel, systemImage: "doc.text")
+                if access.canEdit {
+                    Button {
+                        onAddPlanDocument(kind)
+                    } label: {
+                        Label("Add the \(plan.label) document", systemImage: "doc.badge.plus")
+                    }
+                }
+            }
         }
     }
 }
@@ -57,6 +88,7 @@ struct SchoolEditView: View {
     @State private var teacherName = ""
     @State private var teacherEmail = ""
     @State private var teacherPhone = ""
+    @State private var plan = SchoolPlan.noPlan
     @State private var didLoad = false
 
     var body: some View {
@@ -93,6 +125,13 @@ struct SchoolEditView: View {
                     TextField("Teacher's phone", text: $teacherPhone)
                         .keyboardType(.phonePad)
                 }
+                Section {
+                    Picker("Support plan", selection: $plan) {
+                        ForEach(SchoolPlan.allCases) { Text($0.label).tag($0) }
+                    }
+                } footer: {
+                    Text("Keep the plan itself in Documents as a 504 plan or IEP. The school details link to the newest one.")
+                }
                 Section("School") {
                     TextField("School name", text: $schoolName)
                         .textInputAutocapitalization(.words)
@@ -119,6 +158,7 @@ struct SchoolEditView: View {
             teacherName = person.teacherName
             teacherEmail = person.teacherEmail
             teacherPhone = person.teacherPhone
+            plan = person.schoolPlan
             selectedSchoolID = person.school?.id
             load(person.school)
         }
@@ -142,6 +182,7 @@ struct SchoolEditView: View {
             person.teacherName = ""
             person.teacherEmail = ""
             person.teacherPhone = ""
+            person.schoolPlan = .noPlan
             return
         }
         let school = schools.first { $0.id == selectedSchoolID } ?? {
@@ -160,6 +201,7 @@ struct SchoolEditView: View {
         person.teacherName = teacherName.trimmed
         person.teacherEmail = teacherEmail.trimmed
         person.teacherPhone = teacherPhone.trimmed
+        person.schoolPlan = plan
     }
 }
 

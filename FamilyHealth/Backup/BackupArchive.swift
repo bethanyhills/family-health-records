@@ -3,7 +3,7 @@ import SwiftData
 
 /// A plain, versioned copy of every record, used for the encrypted backup file.
 struct BackupArchive: Codable, Equatable {
-    static let currentVersion = 5
+    static let currentVersion = 6
 
     var version = BackupArchive.currentVersion
     var exportedAt = Date()
@@ -44,6 +44,8 @@ struct BackupArchive: Codable, Equatable {
         var communicationNeeds: String?
         var documents: [DocumentRecord]?
         var visits: [VisitRecord]?
+        /// Added in version 6: "none", "plan504" or "iep".
+        var schoolPlan: String?
     }
 
     struct DocumentRecord: Codable, Equatable {
@@ -195,7 +197,8 @@ extension BackupArchive {
                 visits: p.visits.sorted { $0.createdAt < $1.createdAt }.map {
                     VisitRecord(reason: $0.reason, notes: $0.notes, followUp: $0.followUp, date: $0.date,
                                 followUpDate: $0.followUpDate, createdAt: $0.createdAt, providerID: $0.provider?.id)
-                }
+                },
+                schoolPlan: p.schoolPlanRaw
             )
         }
         providers = try context.fetch(FetchDescriptor<Provider>(sortBy: [SortDescriptor(\.name)])).compactMap {
@@ -448,6 +451,7 @@ extension BackupArchive {
         person.teacherEmail = record.teacherEmail ?? ""
         person.teacherPhone = record.teacherPhone ?? ""
         person.communicationNeeds = record.communicationNeeds ?? ""
+        person.schoolPlanRaw = record.schoolPlan ?? SchoolPlan.noPlan.rawValue
     }
 
     /// Inserts the person's own records: medications, allergies, conditions, procedures,

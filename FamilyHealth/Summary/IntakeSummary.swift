@@ -237,6 +237,8 @@ enum IntakeSummary {
         add(&items, "School", person.school?.name ?? "")
         add(&items, "Grade", person.schoolGrade)
         add(&items, "Teacher", [person.teacherName, person.teacherEmail, person.teacherPhone].joined(", "))
+        add(&items, "Support plan", [person.schoolPlan.activeLabel,
+                                     person.schoolPlanDocument?.date.map { "dated \($0.formDate)" } ?? ""].joined(", "))
         if let school = person.school {
             add(&items, "School phone", school.phone)
             add(&items, "School address", school.address)

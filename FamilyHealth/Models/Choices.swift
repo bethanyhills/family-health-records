@@ -110,7 +110,7 @@ enum TherapyKind: String, PickerChoice {
 
 enum DocumentKind: String, PickerChoice {
     case labResults, imaging, diagnosticReport, visitSummary, referral, prescription
-    case vaccineRecord, schoolForm, insuranceLetter
+    case vaccineRecord, schoolForm, plan504, iep, insuranceLetter
     case powerOfAttorney, advanceDirective, polst, hipaaRelease
     case other
 
@@ -124,6 +124,8 @@ enum DocumentKind: String, PickerChoice {
         case .prescription: "Prescription"
         case .vaccineRecord: "Vaccine record"
         case .schoolForm: "School form"
+        case .plan504: "504 plan"
+        case .iep: "IEP (Individualized Education Program)"
         case .insuranceLetter: "Insurance letter"
         case .powerOfAttorney: "Power of attorney"
         case .advanceDirective: "Advance directive or living will"
@@ -133,8 +135,35 @@ enum DocumentKind: String, PickerChoice {
         }
     }
 
+    /// A 504 plan or IEP; listed in their own section and linked from the school details.
+    var isSchoolPlan: Bool { self == .plan504 || self == .iep }
+
     /// Legal papers a caregiver needs on hand; listed in their own section.
     var isLegal: Bool {
         [.powerOfAttorney, .advanceDirective, .polst, .hipaaRelease].contains(self)
+    }
+}
+
+/// A child's school support plan. The plan itself is stored as a document.
+enum SchoolPlan: String, PickerChoice {
+    case noPlan = "none", plan504, iep
+
+    var label: String {
+        switch self {
+        case .noPlan: "None"
+        case .plan504: "504 plan"
+        case .iep: "IEP"
+        }
+    }
+
+    /// "Active IEP", as shown in the school details and on the intake summary.
+    var activeLabel: String { self == .noPlan ? "" : "Active \(label)" }
+
+    var documentKind: DocumentKind? {
+        switch self {
+        case .noPlan: nil
+        case .plan504: .plan504
+        case .iep: .iep
+        }
     }
 }
