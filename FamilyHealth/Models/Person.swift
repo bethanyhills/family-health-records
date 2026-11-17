@@ -19,6 +19,8 @@ final class Person {
     var teacherName: String = ""
     var teacherEmail: String = ""
     var teacherPhone: String = ""
+    /// How this person communicates with providers (1.3), e.g. "Deaf, uses ASL, needs an interpreter".
+    var communicationNeeds: String = ""
     @Attribute(.externalStorage) var photoData: Data?
     var sortOrder: Int = 0
     var createdAt: Date = Date()
@@ -37,6 +39,10 @@ final class Person {
     var familyHistory: [FamilyHistoryItem] = []
     @Relationship(deleteRule: .cascade, inverse: \Therapy.person)
     var therapies: [Therapy] = []
+    @Relationship(deleteRule: .cascade, inverse: \HealthDocument.person)
+    var documents: [HealthDocument] = []
+    @Relationship(deleteRule: .cascade, inverse: \Visit.person)
+    var visits: [Visit] = []
     /// 1.0 per-person contacts. Moved into `contacts` by `ModelStore.upgradeData`; not used by the UI.
     @Relationship(deleteRule: .cascade, inverse: \EmergencyContact.person)
     var emergencyContacts: [EmergencyContact] = []

@@ -18,6 +18,7 @@ struct PersonEditView: View {
     @State private var height = ""
     @State private var weight = ""
     @State private var notes = ""
+    @State private var communicationNeeds = ""
     @State private var photoData: Data?
     @State private var photoItem: PhotosPickerItem?
     @State private var didLoad = false
@@ -71,6 +72,15 @@ struct PersonEditView: View {
                 WeightField(text: $weight)
             }
 
+            Section {
+                TextField("e.g. Deaf, uses ASL, needs an interpreter", text: $communicationNeeds, axis: .vertical)
+                    .lineLimit(1...4)
+            } header: {
+                Text("Communication needs")
+            } footer: {
+                Text("Interpreter, language, hearing, vision or speech needs. Shown first on the intake summary.")
+            }
+
             Section("Notes") {
                 TextField("Anything else worth remembering", text: $notes, axis: .vertical)
                     .lineLimit(3...8)
@@ -117,6 +127,7 @@ struct PersonEditView: View {
         height = person.height
         weight = person.weight
         notes = person.notes
+        communicationNeeds = person.communicationNeeds
         photoData = person.photoData
     }
 
@@ -136,6 +147,7 @@ struct PersonEditView: View {
         target.height = height
         target.weight = weight
         target.notes = notes.trimmed
+        target.communicationNeeds = communicationNeeds.trimmed
         target.photoData = photoData
         dismiss()
     }

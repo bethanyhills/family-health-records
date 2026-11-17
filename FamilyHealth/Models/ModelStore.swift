@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-/// Version 1.2: adds therapies. Uses the live model classes.
-enum SchemaV3: VersionedSchema {
-    static let versionIdentifier = Schema.Version(1, 2, 0)
+/// Version 1.3: adds documents, visit notes and communication needs. Uses the live model classes.
+enum SchemaV4: VersionedSchema {
+    static let versionIdentifier = Schema.Version(1, 3, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -20,6 +20,8 @@ enum SchemaV3: VersionedSchema {
             Pharmacy.self,
             School.self,
             Therapy.self,
+            HealthDocument.self,
+            Visit.self,
         ]
     }
 }
@@ -28,12 +30,13 @@ enum SchemaV3: VersionedSchema {
 /// add a new version with the live classes, add a stage below, and point
 /// `ModelStore.currentSchema` at the new version.
 enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self, SchemaV3.self] }
+    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self] }
 
     static var stages: [MigrationStage] {
         [
             .lightweight(fromVersion: SchemaV1.self, toVersion: SchemaV2.self),
             .lightweight(fromVersion: SchemaV2.self, toVersion: SchemaV3.self),
+            .lightweight(fromVersion: SchemaV3.self, toVersion: SchemaV4.self),
         ]
     }
 }
@@ -41,7 +44,7 @@ enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
 enum ModelStore {
     static let storeName = "FamilyHealth"
     /// The newest schema version, the one that uses the live model classes.
-    static let currentSchema: any VersionedSchema.Type = SchemaV3.self
+    static let currentSchema: any VersionedSchema.Type = SchemaV4.self
 
     /// Records live only on this device. `cloudKitDatabase: .none` keeps
     /// SwiftData from ever syncing health data to iCloud (App Store guideline 5.1.3).

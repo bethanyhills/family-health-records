@@ -57,6 +57,15 @@ struct PersonDetailView: View {
                 }
             }
 
+            Section("Visits and documents") {
+                RecordLink("Visit notes", systemImage: "note.text", color: .cyan, count: person.visits.count) {
+                    VisitsView(person: person)
+                }
+                RecordLink("Documents", systemImage: "doc.text.fill", color: .gray, count: person.documents.count) {
+                    DocumentsView(person: person)
+                }
+            }
+
             Section("Care team") {
                 RecordLink("Providers", systemImage: "person.badge.shield.checkmark.fill", color: .green, count: person.providers.count) {
                     ProvidersView(person: person)
@@ -80,6 +89,7 @@ struct PersonDetailView: View {
                 InfoRow("Blood type", person.bloodType == .unknown ? "" : person.bloodType.label)
                 InfoRow("Height", person.height)
                 InfoRow("Weight", person.weight)
+                InfoRow("Communication needs", person.communicationNeeds)
                 if hasNoBasics {
                     Text("No details yet. Tap Edit to add blood type, height and weight.")
                         .foregroundStyle(.secondary)

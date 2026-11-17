@@ -61,6 +61,20 @@ final class SummaryAndBackupTests: XCTestCase {
         therapy.goals = "Handwriting"
         therapy.person = child
         therapy.provider = ot
+        child.communicationNeeds = "Uses ASL; needs an interpreter"
+        let report = HealthDocument(title: "Speech evaluation", kind: .diagnosticReport, date: TypedDate.parse("09/03/2025"))
+        context.insert(report)
+        report.pdfData = Data([37, 80, 68, 70])
+        report.pageCount = 4
+        report.recognizedText = "Expressive language delay"
+        report.person = child
+        report.provider = ot
+        let visit = Visit(date: TypedDate.parse("10/01/2025"), reason: "Ear pain")
+        context.insert(visit)
+        visit.notes = "Mild ear infection, watch and wait"
+        visit.followUpDate = TypedDate.parse("10/15/2025")
+        visit.person = child
+        visit.provider = provider
         let pastTherapy = Therapy(kind: .other, isActive: false)
         context.insert(pastTherapy)
         pastTherapy.customName = "Vision therapy"
@@ -80,6 +94,8 @@ final class SummaryAndBackupTests: XCTestCase {
         try context.save()
 
         let sections = IntakeSummary.sections(for: child)
+        XCTAssertEqual(sections.first?.title, "Communication needs", "Shown before anything else")
+        XCTAssertEqual(sections.first?.items.first?.value, "Uses ASL; needs an interpreter")
         let meds = try XCTUnwrap(sections.first { $0.title == "Current medications" })
         XCTAssertEqual(meds.items.map(\.label), ["Albuterol 90 mcg"])
         XCTAssertEqual(meds.items.first?.value, "as needed, for asthma")
@@ -152,6 +168,12 @@ final class SummaryAndBackupTests: XCTestCase {
         XCTAssertEqual(ot.provider?.name, "Jane Smith, OTR/L")
         XCTAssertEqual(ot.goals, "Handwriting")
         XCTAssertEqual(child.therapies.first { !$0.isActive }?.displayName, "Vision therapy")
+        XCTAssertEqual(child.communicationNeeds, "Uses ASL; needs an interpreter")
+        XCTAssertEqual(child.documents.first?.pdfData, Data([37, 80, 68, 70]))
+        XCTAssertEqual(child.documents.first?.provider?.name, "Jane Smith, OTR/L")
+        XCTAssertEqual(child.documents.first?.recognizedText, "Expressive language delay")
+        XCTAssertEqual(child.visits.first?.provider?.name, "Dr. Rivera")
+        XCTAssertEqual(child.visits.first?.notes, "Mild ear infection, watch and wait")
         XCTAssertEqual(child.insurancePolicies.first?.cardFrontImage, Data([1, 2, 3]))
         XCTAssertEqual(child.insurancePolicies.first?.members.count, 2)
         XCTAssertEqual(child.pharmacies.map(\.name), ["Walgreens"])

@@ -34,6 +34,7 @@ struct SummarySection: Identifiable, Equatable {
 enum IntakeSummary {
     static func sections(for person: Person, today: Date = .now) -> [SummarySection] {
         [
+            communication(person),
             patient(person, today: today),
             allergies(person),
             medications(person, current: true),
@@ -52,7 +53,7 @@ enum IntakeSummary {
             school(person),
         ]
         // Hide empty sections that many people won't have.
-        .filter { !$0.items.isEmpty || !["Past medications", "Past conditions", "Current therapies", "Past therapies", "School"].contains($0.title) }
+        .filter { !$0.items.isEmpty || !["Communication needs", "Past medications", "Past conditions", "Current therapies", "Past therapies", "School"].contains($0.title) }
     }
 
     /// Plain text for pasting into an email or a web form's free-text box.
@@ -73,6 +74,13 @@ enum IntakeSummary {
     }
 
     // MARK: Sections
+
+    /// First, so whoever reads the form sees it before anything else.
+    private static func communication(_ person: Person) -> SummarySection {
+        var items: [SummaryItem] = []
+        add(&items, "Communication needs", person.communicationNeeds)
+        return SummarySection(title: "Communication needs", items: items)
+    }
 
     private static func patient(_ person: Person, today: Date) -> SummarySection {
         var items = [SummaryItem(label: "Name", value: person.displayName)]
