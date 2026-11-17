@@ -10,6 +10,7 @@ struct PeopleListView: View {
     @State private var isAddingPerson = false
     @State private var isShowingSettings = false
     @State private var personToDelete: Person?
+    @State private var searchText = ""
     @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
 
     var body: some View {
@@ -17,10 +18,13 @@ struct PeopleListView: View {
             Group {
                 if people.isEmpty {
                     emptyState
+                } else if !searchText.isBlank {
+                    SearchResultsList(hits: FamilySearch.hits(for: searchText, in: people))
                 } else {
                     list
                 }
             }
+            .searchable(text: $searchText, prompt: "Search all records")
             .navigationTitle("Family")
             .navigationDestination(for: Person.self) { person in
                 PersonDetailView(person: person)

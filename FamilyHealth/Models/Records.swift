@@ -159,6 +159,11 @@ final class Provider {
     /// Therapies this provider gives (1.2). Deleting the provider keeps the therapy.
     @Relationship(deleteRule: .nullify, inverse: \Therapy.provider)
     var therapies: [Therapy] = []
+    /// Visits with and documents from this provider (1.3). Deleting the provider keeps them.
+    @Relationship(deleteRule: .nullify, inverse: \Visit.provider)
+    var visits: [Visit] = []
+    @Relationship(deleteRule: .nullify, inverse: \HealthDocument.provider)
+    var documents: [HealthDocument] = []
 
     init(name: String, specialty: String = "") {
         self.name = name
@@ -262,5 +267,58 @@ final class Therapy {
 
     var displayName: String {
         kind == .other && !customName.isBlank ? customName.trimmed : kind.label
+    }
+}
+
+/// A lab report, diagnostic report, letter or form, kept whole as a PDF (1.3).
+/// Scans and photos are turned into a PDF when added.
+@Model
+final class HealthDocument {
+    var id: UUID = UUID()
+    var title: String = ""
+    var kindRaw: String = DocumentKind.other.rawValue
+    var date: Date?
+    var notes: String = ""
+    /// Text read from the pages on the phone, so documents can be searched.
+    var recognizedText: String = ""
+    var pageCount: Int = 0
+    @Attribute(.externalStorage) var pdfData: Data?
+    var createdAt: Date = Date()
+    var person: Person?
+    var provider: Provider?
+
+    init(title: String, kind: DocumentKind = .other, date: Date? = nil) {
+        self.title = title
+        self.kindRaw = kind.rawValue
+        self.date = date
+    }
+
+    var kind: DocumentKind {
+        get { DocumentKind(rawValue: kindRaw) ?? .other }
+        set { kindRaw = newValue.rawValue }
+    }
+
+    var displayTitle: String {
+        title.isBlank ? kind.label : title.trimmed
+    }
+}
+
+/// Notes from an appointment: why they went, what was said, and what happens next (1.3).
+@Model
+final class Visit {
+    var id: UUID = UUID()
+    var date: Date?
+    var reason: String = ""
+    /// What the provider said, in Beth's words.
+    var notes: String = ""
+    var followUp: String = ""
+    var followUpDate: Date?
+    var createdAt: Date = Date()
+    var person: Person?
+    var provider: Provider?
+
+    init(date: Date? = nil, reason: String = "") {
+        self.date = date
+        self.reason = reason
     }
 }

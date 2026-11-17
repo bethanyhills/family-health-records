@@ -72,7 +72,9 @@ enum ConditionStatus: String, PickerChoice {
 }
 
 enum InsuranceKind: String, PickerChoice {
-    case medical, dental, vision, prescription, other
+    case medical, dental, vision, prescription
+    case medicare, medicareAdvantage, medigap, medicarePartD, medicaid
+    case other
 
     var label: String {
         switch self {
@@ -80,6 +82,11 @@ enum InsuranceKind: String, PickerChoice {
         case .dental: "Dental"
         case .vision: "Vision"
         case .prescription: "Prescription"
+        case .medicare: "Medicare (Parts A and B)"
+        case .medicareAdvantage: "Medicare Advantage (Part C)"
+        case .medigap: "Medicare supplement (Medigap)"
+        case .medicarePartD: "Medicare Part D (drugs)"
+        case .medicaid: "Medicaid"
         case .other: "Other"
         }
     }
@@ -98,5 +105,36 @@ enum TherapyKind: String, PickerChoice {
         case .counseling: "Counseling"
         case .other: "Other"
         }
+    }
+}
+
+enum DocumentKind: String, PickerChoice {
+    case labResults, imaging, diagnosticReport, visitSummary, referral, prescription
+    case vaccineRecord, schoolForm, insuranceLetter
+    case powerOfAttorney, advanceDirective, polst, hipaaRelease
+    case other
+
+    var label: String {
+        switch self {
+        case .labResults: "Lab results"
+        case .imaging: "Imaging report (X-ray, MRI, ultrasound)"
+        case .diagnosticReport: "Evaluation or diagnostic report"
+        case .visitSummary: "Visit or discharge summary"
+        case .referral: "Referral"
+        case .prescription: "Prescription"
+        case .vaccineRecord: "Vaccine record"
+        case .schoolForm: "School form"
+        case .insuranceLetter: "Insurance letter"
+        case .powerOfAttorney: "Power of attorney"
+        case .advanceDirective: "Advance directive or living will"
+        case .polst: "POLST / DNR"
+        case .hipaaRelease: "HIPAA release"
+        case .other: "Other"
+        }
+    }
+
+    /// Legal papers a caregiver needs on hand; listed in their own section.
+    var isLegal: Bool {
+        [.powerOfAttorney, .advanceDirective, .polst, .hipaaRelease].contains(self)
     }
 }

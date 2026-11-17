@@ -3,7 +3,7 @@ import SwiftData
 
 /// A plain, versioned copy of every record, used for the encrypted backup file.
 struct BackupArchive: Codable, Equatable {
-    static let currentVersion = 4
+    static let currentVersion = 5
 
     var version = BackupArchive.currentVersion
     var exportedAt = Date()
@@ -40,6 +40,26 @@ struct BackupArchive: Codable, Equatable {
         var schoolGrade, teacherName, teacherEmail, teacherPhone: String?
         /// Added in version 3.
         var therapies: [TherapyRecord]?
+        /// Added in version 5.
+        var communicationNeeds: String?
+        var documents: [DocumentRecord]?
+        var visits: [VisitRecord]?
+    }
+
+    struct DocumentRecord: Codable, Equatable {
+        var title, kind, notes, recognizedText: String
+        var date: Date?
+        var pageCount: Int
+        var pdf: Data?
+        var createdAt: Date
+        var providerID: UUID?
+    }
+
+    struct VisitRecord: Codable, Equatable {
+        var reason, notes, followUp: String
+        var date, followUpDate: Date?
+        var createdAt: Date
+        var providerID: UUID?
     }
 
     struct TherapyRecord: Codable, Equatable {
@@ -165,6 +185,16 @@ extension BackupArchive {
                     TherapyRecord(kind: $0.kindRaw, customName: $0.customName, frequency: $0.frequency,
                                   goals: $0.goals, notes: $0.notes, startDate: $0.startDate, endDate: $0.endDate,
                                   isActive: $0.isActive, providerID: $0.provider?.id)
+                },
+                communicationNeeds: p.communicationNeeds,
+                documents: p.documents.sorted { $0.createdAt < $1.createdAt }.map {
+                    DocumentRecord(title: $0.title, kind: $0.kindRaw, notes: $0.notes, recognizedText: $0.recognizedText,
+                                   date: $0.date, pageCount: $0.pageCount, pdf: $0.pdfData, createdAt: $0.createdAt,
+                                   providerID: $0.provider?.id)
+                },
+                visits: p.visits.sorted { $0.createdAt < $1.createdAt }.map {
+                    VisitRecord(reason: $0.reason, notes: $0.notes, followUp: $0.followUp, date: $0.date,
+                                followUpDate: $0.followUpDate, createdAt: $0.createdAt, providerID: $0.provider?.id)
                 }
             )
         }
@@ -213,13 +243,13 @@ extension BackupArchive {
         try context.save()
 
         var peopleByID: [UUID: Person] = [:]
-        var therapiesByProviderID: [UUID: [Therapy]] = [:]
+        var providerLinks = ProviderLinks()
         for record in people {
             let person = Person(name: record.name)
             context.insert(person)
             person.id = record.id
             fill(person, from: record)
-            insertRecords(of: record, for: person, in: context, therapiesByProviderID: &therapiesByProviderID)
+            insertRecords(of: record, for: person, in: context, providerLinks: &providerLinks)
             for r in record.emergencyContacts {
                 // Version 1 backups: each contact belonged to one person.
                 let item = EmergencyContact(name: r.name, relationship: r.relationship, phone: r.phone)
@@ -237,7 +267,7 @@ extension BackupArchive {
             fill(provider, from: r)
             provider.patients = r.patientIDs.compactMap { peopleByID[$0] }
             if let id = r.id {
-                for therapy in therapiesByProviderID[id] ?? [] { therapy.provider = provider }
+                providerLinks.link(provider, id: id)
             }
         }
         for r in insurancePolicies {
@@ -285,7 +315,7 @@ extension BackupArchive {
         )
         let nextSortOrder = (existingPeople.values.map(\.sortOrder).max() ?? -1) + 1
         var peopleByID: [UUID: Person] = [:]
-        var therapiesByProviderID: [UUID: [Therapy]] = [:]
+        var providerLinks = ProviderLinks()
         var added = 0
         for (index, record) in people.enumerated() {
             let person: Person
@@ -299,6 +329,8 @@ extension BackupArchive {
                 for item in person.immunizations { context.delete(item) }
                 for item in person.familyHistory { context.delete(item) }
                 for item in person.therapies { context.delete(item) }
+                for item in person.documents { context.delete(item) }
+                for item in person.visits { context.delete(item) }
                 fill(person, from: record)
                 // Keep this phone's order of the family.
                 person.sortOrder = sortOrder
@@ -310,7 +342,7 @@ extension BackupArchive {
                 person.sortOrder = nextSortOrder + index
                 added += 1
             }
-            insertRecords(of: record, for: person, in: context, therapiesByProviderID: &therapiesByProviderID)
+            insertRecords(of: record, for: person, in: context, providerLinks: &providerLinks)
             peopleByID[record.id] = person
         }
         try context.save()
@@ -347,7 +379,7 @@ extension BackupArchive {
             fill(provider, from: r)
             relink(&provider.patients, to: r.patientIDs)
             if let id = r.id {
-                for therapy in therapiesByProviderID[id] ?? [] { therapy.provider = provider }
+                providerLinks.link(provider, id: id)
             }
         }
         let policiesHere = try context.fetch(FetchDescriptor<InsurancePolicy>())
@@ -415,13 +447,14 @@ extension BackupArchive {
         person.teacherName = record.teacherName ?? ""
         person.teacherEmail = record.teacherEmail ?? ""
         person.teacherPhone = record.teacherPhone ?? ""
+        person.communicationNeeds = record.communicationNeeds ?? ""
     }
 
     /// Inserts the person's own records: medications, allergies, conditions, procedures,
     /// immunizations, family history and therapies.
     private func insertRecords(
         of record: PersonRecord, for person: Person, in context: ModelContext,
-        therapiesByProviderID: inout [UUID: [Therapy]]
+        providerLinks: inout ProviderLinks
     ) {
         for r in record.medications {
             let item = Medication(name: r.name, dose: r.dose, frequency: r.frequency, isActive: r.isActive)
@@ -483,7 +516,29 @@ extension BackupArchive {
             item.startDate = r.startDate
             item.endDate = r.endDate
             item.person = person
-            if let providerID = r.providerID { therapiesByProviderID[providerID, default: []].append(item) }
+            if let providerID = r.providerID { providerLinks.therapies[providerID, default: []].append(item) }
+        }
+        for r in record.documents ?? [] {
+            let item = HealthDocument(title: r.title, date: r.date)
+            context.insert(item)
+            item.kindRaw = r.kind
+            item.notes = r.notes
+            item.recognizedText = r.recognizedText
+            item.pageCount = r.pageCount
+            item.pdfData = r.pdf
+            item.createdAt = r.createdAt
+            item.person = person
+            if let providerID = r.providerID { providerLinks.documents[providerID, default: []].append(item) }
+        }
+        for r in record.visits ?? [] {
+            let item = Visit(date: r.date, reason: r.reason)
+            context.insert(item)
+            item.notes = r.notes
+            item.followUp = r.followUp
+            item.followUpDate = r.followUpDate
+            item.createdAt = r.createdAt
+            item.person = person
+            if let providerID = r.providerID { providerLinks.visits[providerID, default: []].append(item) }
         }
     }
 
@@ -539,5 +594,18 @@ extension BackupArchive {
         contact.relationship = r.relationship
         contact.phone = r.phone
         contact.notes = r.notes
+    }
+}
+
+/// Records that point at a provider by id, waiting for the provider to be created or matched.
+struct ProviderLinks {
+    var therapies: [UUID: [Therapy]] = [:]
+    var documents: [UUID: [HealthDocument]] = [:]
+    var visits: [UUID: [Visit]] = [:]
+
+    func link(_ provider: Provider, id: UUID) {
+        for item in therapies[id] ?? [] { item.provider = provider }
+        for item in documents[id] ?? [] { item.provider = provider }
+        for item in visits[id] ?? [] { item.provider = provider }
     }
 }
