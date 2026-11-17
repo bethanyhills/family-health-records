@@ -4,11 +4,13 @@ import SwiftUI
 struct PeopleListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
+    @Environment(Purchases.self) private var purchases
     @Query(sort: [SortDescriptor(\Person.sortOrder), SortDescriptor(\Person.name)])
     private var people: [Person]
 
     @State private var isAddingPerson = false
     @State private var isShowingSettings = false
+    @State private var isShowingUnlock = false
     @State private var personToDelete: Person?
     @State private var searchText = ""
     @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
@@ -55,6 +57,9 @@ struct PeopleListView: View {
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView()
             }
+            .sheet(isPresented: $isShowingUnlock) {
+                UnlockView()
+            }
             .confirmationDialog(
                 "Delete \(personToDelete?.displayName ?? "")?",
                 isPresented: Binding(
@@ -78,6 +83,12 @@ struct PeopleListView: View {
 
     private var list: some View {
         List {
+            if TrialPolicy.showsBanner(purchases.status) {
+                Section {
+                    TrialBanner(status: purchases.status) { isShowingUnlock = true }
+                }
+            }
+
             if BackupStatus.isDue(lastBackupAt: lastBackupAt) {
                 Section {
                     Button {

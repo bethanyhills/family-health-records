@@ -16,16 +16,20 @@ struct DocumentsView: View {
 
     var body: some View {
         let legal = sorted(person.documents.filter { $0.kind.isLegal })
-        let other = sorted(person.documents.filter { !$0.kind.isLegal })
+        let schoolPlans = sorted(person.documents.filter { $0.kind.isSchoolPlan })
+        let other = sorted(person.documents.filter { !$0.kind.isLegal && !$0.kind.isSchoolPlan })
         List {
             if !legal.isEmpty {
                 Section("Legal papers") { rows(legal) }
+            }
+            if !schoolPlans.isEmpty {
+                Section("504 plans and IEPs") { rows(schoolPlans) }
             }
             if !other.isEmpty {
                 Section {
                     rows(other)
                 } header: {
-                    if !legal.isEmpty { Text("Medical documents") }
+                    if !legal.isEmpty || !schoolPlans.isEmpty { Text("Medical documents") }
                 }
             }
         }
@@ -219,6 +223,8 @@ struct PDFPreview: UIViewRepresentable {
 struct DocumentEditView: View {
     let person: Person
     let document: HealthDocument?
+    /// The type a new document starts as, e.g. an IEP added from the school details.
+    var initialKind: DocumentKind? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Provider.name) private var providers: [Provider]
@@ -332,7 +338,13 @@ struct DocumentEditView: View {
         .onAppear {
             guard !didLoad else { return }
             didLoad = true
-            guard let document else { return }
+            guard let document else {
+                if let initialKind {
+                    kind = initialKind
+                    title = initialKind == .iep ? "IEP" : initialKind.label
+                }
+                return
+            }
             title = document.title
             kind = document.kind
             date = document.date
@@ -370,5 +382,10 @@ struct DocumentEditView: View {
             target.pageCount = pdfData.map(DocumentPDF.pageCount(of:)) ?? 0
         }
         target.recognizedText = recognizedText
+        // Adding a 504 plan or IEP marks it active in the school details.
+        if person.schoolPlan == .noPlan {
+            if kind == .plan504 { person.schoolPlan = .plan504 }
+            if kind == .iep { person.schoolPlan = .iep }
+        }
     }
 }

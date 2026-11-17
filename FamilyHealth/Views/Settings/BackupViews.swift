@@ -123,6 +123,7 @@ final class BackupFlow {
 /// Its sheets and file dialogs are attached to the page with `backupPresentations(_:)`.
 struct BackupSection: View {
     let flow: BackupFlow
+    @Environment(\.recordAccess) private var access
     @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
 
     var body: some View {
@@ -147,6 +148,9 @@ struct BackupSection: View {
             } label: {
                 Label("Import shared family members", systemImage: "square.and.arrow.down")
             }
+            // Adding people needs the trial or the unlock. Restoring your own
+            // backup always works, so records are never stuck on an old phone.
+            .disabled(!access.canEdit)
         } header: {
             Text("Backup")
         } footer: {
