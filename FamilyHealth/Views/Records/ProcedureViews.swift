@@ -9,7 +9,7 @@ struct ProceduresView: View {
         RecordList(
             title: "Surgeries & procedures",
             emptyTitle: "No surgeries or procedures",
-            emptyMessage: "Add surgeries, procedures and hospital stays, newest first.",
+            emptyMessage: "Add surgeries, procedures and hospital stays, newest first. Scan the discharge papers to keep them in Documents.",
             systemImage: "cross.case",
             sections: [RecordSection(nil, sorted)],
             row: { procedure in
@@ -18,7 +18,9 @@ struct ProceduresView: View {
                     details: [procedure.date?.shortDate ?? "", procedure.facility, procedure.surgeon]
                 )
             },
-            editor: { ProcedureEditView(person: person, procedure: $0) }
+            editor: { ProcedureEditView(person: person, procedure: $0) },
+            // Discharge papers are kept in Documents, then the surgery itself is added.
+            scan: RecordScan(person: person, kind: .visitSummary, title: "Scan discharge papers", thenAddRecord: true)
         )
     }
 }

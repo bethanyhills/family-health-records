@@ -7,6 +7,8 @@ import SwiftUI
 struct SchoolPlanImportView: View {
     let person: Person
     let document: HealthDocument
+    /// Called with a short message after the plan is saved.
+    var onFinished: ((String) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var isReading = true
@@ -120,5 +122,7 @@ struct SchoolPlanImportView: View {
         )
         document.notes = details.merged(into: document.notes)
         person.schoolPlan = plan
+        document.importedAt = .now
+        onFinished?("Added the \(plan == .iep ? "IEP" : "504 plan") to school details")
     }
 }

@@ -4,8 +4,8 @@ import UIKit
 /// Feedback and feature requests go by email from the person's own Mail app, so the
 /// app itself still sends nothing anywhere.
 enum Feedback {
-    /// Where feedback goes. Placeholder until the support address exists.
-    static let address = "feedback@example.com"
+    /// Where feedback goes: the app's support mailbox.
+    static let address = "healthbindersupport@gmail.com"
     /// The app's App Store id, once it has one. The rating row shows only when this is set.
     static let appStoreID: String? = nil
 

@@ -9,6 +9,8 @@ struct SchoolSection: View {
     let onEdit: () -> Void
     /// Opens the new-document sheet for the plan, from the page (see above).
     let onAddPlanDocument: (DocumentKind) -> Void
+    /// Opens the same sheet with the camera ready.
+    var onScanPlanDocument: ((DocumentKind) -> Void)? = nil
     @Environment(\.recordAccess) private var access
 
     var body: some View {
@@ -33,6 +35,14 @@ struct SchoolSection: View {
             if access.canEdit {
                 Button(action: onEdit) {
                     Label(person.hasSchoolInfo ? "Edit school details" : "Add school details", systemImage: "graduationcap")
+                }
+                if let onScanPlanDocument {
+                    Button {
+                        // The plan's type is checked against what the pages say once they're read.
+                        onScanPlanDocument(person.schoolPlan.documentKind ?? .plan504)
+                    } label: {
+                        Label("Scan a 504 plan or IEP", systemImage: "doc.viewfinder")
+                    }
                 }
             }
         } header: {

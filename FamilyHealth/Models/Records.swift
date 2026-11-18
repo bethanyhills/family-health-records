@@ -284,6 +284,8 @@ final class HealthDocument {
     var pageCount: Int = 0
     @Attribute(.externalStorage) var pdfData: Data?
     var createdAt: Date = Date()
+    /// When what the document says was added to the person's records (1.6).
+    var importedAt: Date?
     var person: Person?
     var provider: Provider?
 

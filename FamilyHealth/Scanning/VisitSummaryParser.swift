@@ -16,10 +16,14 @@ enum VisitSummaryParser {
         var medicationChanges: [String] = []
         var followUp = ""
         var followUpDate: Date?
+        /// Measured at the visit, as the profile writes them: "4 ft 2 in", "62 lb".
+        var height = ""
+        var weight = ""
 
         var isEmpty: Bool {
             date == nil && provider.isEmpty && reason.isEmpty && diagnoses.isEmpty
                 && instructions.isEmpty && medicationChanges.isEmpty && followUp.isEmpty
+                && height.isEmpty && weight.isEmpty
         }
 
         /// The "What they said" text: diagnoses, medication changes and instructions.
@@ -113,7 +117,65 @@ enum VisitSummaryParser {
         let followUpText = followUpRows.isEmpty ? (followUpSentence(in: rows).map { [$0] } ?? []) : followUpRows
         result.followUp = followUpText.prefix(3).joined(separator: " ")
         result.followUpDate = followUpDate(in: result.followUp, after: result.date ?? now, now: now)
+        result.height = height(in: rows)?.text ?? ""
+        result.weight = weight(in: rows)?.text ?? ""
         return result
+    }
+
+    // MARK: Height and weight
+
+    /// "Height: 4' 2\"", "Ht 127 cm", "Height 50.5 in", "Ht: 1.27 m".
+    private static let heightPattern = try! NSRegularExpression(
+        pattern: #"(?<!birth )\b(?:height|ht|length)\b\.?\s*(?:[:\-]\s*)?(?:(\d)\s*(?:'|’|ft\.?|feet|foot)\s*(\d{1,2}(?:\.\d+)?)?\s*(?:"|”|''|in\b\.?|inches)?|(\d{2,3}(?:\.\d+)?)\s*(cm|in\b|inches|"|”)|([12](?:\.\d{1,2}))\s*m\b)"#,
+        options: [.caseInsensitive]
+    )
+    /// "Weight: 62 lb", "Wt 62 lb 3.2 oz", "Weight 28.1 kg". Not a birth weight.
+    private static let weightPattern = try! NSRegularExpression(
+        pattern: #"(?<!birth )\b(?:weight|wt)\b\.?\s*(?:[:\-]\s*)?(\d{1,3}(?:\.\d+)?)\s*(lbs?\b|pounds|#|kg\b|kilograms)\.?(?:\s*(\d{1,2}(?:\.\d+)?)\s*oz)?"#,
+        options: [.caseInsensitive]
+    )
+
+    static func height(in rows: [String]) -> BodyMeasurement.Height? {
+        for row in rows {
+            let ns = row as NSString
+            guard let m = heightPattern.firstMatch(in: row, range: NSRange(location: 0, length: ns.length)) else { continue }
+            func group(_ i: Int) -> String? { m.range(at: i).location == NSNotFound ? nil : ns.substring(with: m.range(at: i)) }
+            if let feet = group(1).flatMap(Int.init) {
+                let inches = group(2).flatMap(Double.init) ?? 0
+                var height = BodyMeasurement.Height(unit: .feetInches, feet: feet, inches: Int(inches.rounded()))
+                if height.inches == 12 { height.feet += 1; height.inches = 0 }
+                if (2...7).contains(feet) || (feet == 1 && height.inches > 0) { return height }
+            } else if let amount = group(3).flatMap(Double.init), let unit = group(4)?.lowercased() {
+                if unit == "cm" {
+                    if (40...230).contains(amount) { return .init(unit: .centimeters, centimeters: Int(amount.rounded())) }
+                } else if (15...90).contains(amount) {
+                    let total = Int(amount.rounded())
+                    return .init(unit: .feetInches, feet: total / 12, inches: total % 12)
+                }
+            } else if let meters = group(5).flatMap(Double.init), (0.4...2.3).contains(meters) {
+                return .init(unit: .centimeters, centimeters: Int((meters * 100).rounded()))
+            }
+        }
+        return nil
+    }
+
+    static func weight(in rows: [String]) -> BodyMeasurement.Weight? {
+        for row in rows {
+            let ns = row as NSString
+            guard let m = weightPattern.firstMatch(in: row, range: NSRange(location: 0, length: ns.length)),
+                  let amount = Double(ns.substring(with: m.range(at: 1))), amount > 0 else { continue }
+            let unit = ns.substring(with: m.range(at: 2)).lowercased()
+            if unit.hasPrefix("k") {
+                if amount <= 300 { return .init(unit: .kilograms, amount: amount) }
+            } else {
+                var pounds = amount
+                if m.range(at: 3).location != NSNotFound, let ounces = Double(ns.substring(with: m.range(at: 3))) {
+                    pounds += ounces / 16
+                }
+                if pounds <= 700 { return .init(unit: .pounds, amount: (pounds * 10).rounded() / 10) }
+            }
+        }
+        return nil
     }
 
     // MARK: Date and provider

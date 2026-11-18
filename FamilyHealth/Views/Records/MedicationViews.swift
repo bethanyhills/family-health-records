@@ -21,7 +21,8 @@ struct MedicationsView: View {
                     details: [medication.dose, medication.frequency, medication.reason.isBlank ? "" : "for \(medication.reason)"]
                 )
             },
-            editor: { MedicationEditView(person: person, medication: $0) }
+            editor: { MedicationEditView(person: person, medication: $0) },
+            scan: RecordScan(person: person, kind: .prescription, title: "Scan a label")
         )
     }
 }
@@ -33,6 +34,8 @@ struct MedicationEditView: View {
     var draft: PrescriptionParser.Result? = nil
     /// The document the draft was read from.
     var draftSource: String? = nil
+    /// Called after Save, e.g. to show what was added from a document.
+    var onSaved: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Provider.name) private var providers: [Provider]
@@ -172,6 +175,7 @@ struct MedicationEditView: View {
     }
 
     private func save() {
+        defer { onSaved?() }
         let target = medication ?? {
             let new = Medication(name: name.trimmed)
             modelContext.insert(new)

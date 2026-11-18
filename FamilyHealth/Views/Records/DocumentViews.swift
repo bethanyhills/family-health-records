@@ -13,6 +13,7 @@ struct DocumentsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
     @State private var isAdding = false
+    @State private var message: String?
 
     var body: some View {
         let legal = sorted(person.documents.filter { $0.kind.isLegal })
@@ -60,8 +61,9 @@ struct DocumentsView: View {
             }
         }
         .sheet(isPresented: $isAdding) {
-            NavigationStack { DocumentEditView(person: person, document: nil) }
+            NavigationStack { DocumentEditView(person: person, document: nil) { message = $0 } }
         }
+        .successBanner($message)
     }
 
     private func sorted(_ documents: [HealthDocument]) -> [HealthDocument] {
@@ -134,8 +136,20 @@ struct DocumentDetailView: View {
     let document: HealthDocument
 
     @Environment(\.recordAccess) private var access
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Person.name) private var family: [Person]
     @State private var isEditing = false
     @State private var importing: DocumentImport?
+    @State private var message: String?
+    @State private var movingTo: Person?
+    @State private var keptOwnerID: UUID?
+
+    /// Another family member this document names instead, if it looks misfiled.
+    private var namedOwner: Person? {
+        guard access.canEdit, let owner = DocumentOwner.otherOwner(
+            of: document.recognizedText, filedUnder: person, family: family) else { return nil }
+        return owner.id == keptOwnerID ? nil : owner
+    }
 
     var body: some View {
         Group {
@@ -147,42 +161,70 @@ struct DocumentDetailView: View {
             }
         }
         .safeAreaInset(edge: .top) {
-            let details = DocumentRow.details(for: document).filter { !$0.isEmpty }
-            if !details.isEmpty || !document.notes.isBlank {
-                VStack(alignment: .leading, spacing: 2) {
-                    if !details.isEmpty {
-                        Text(details.joined(separator: " · ")).font(.subheadline)
-                    }
-                    if !document.notes.isBlank {
-                        Text(document.notes).font(.footnote).foregroundStyle(.secondary)
-                    }
+            VStack(spacing: 0) {
+                if let owner = namedOwner {
+                    MisfiledNotice(filedUnder: person, owner: owner,
+                                   onMove: { movingTo = owner }, onKeep: { keptOwnerID = owner.id })
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(.bar)
+                let details = DocumentRow.details(for: document).filter { !$0.isEmpty }
+                if !details.isEmpty || !document.notes.isBlank {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !details.isEmpty {
+                            Text(details.joined(separator: " · ")).font(.subheadline)
+                        }
+                        if !document.notes.isBlank {
+                            Text(document.notes).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(.bar)
+                }
             }
         }
         .safeAreaInset(edge: .bottom) {
             if document.pdfData != nil, access.canEdit, let action = DocumentImport.offered(for: document) {
-                Button {
-                    importing = action
-                } label: {
-                    Label(action.buttonTitle, systemImage: action.systemImage)
-                        .frame(maxWidth: .infinity)
+                Group {
+                    if let importedAt = document.importedAt {
+                        // Already added: say so, and keep a quieter way to go through it again.
+                        HStack {
+                            Label("Added to \(action.destination) on \(importedAt.formDate)", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Review again") { importing = action }
+                                .font(.subheadline)
+                        }
+                    } else {
+                        Button {
+                            importing = action
+                        } label: {
+                            Label(action.buttonTitle, systemImage: action.systemImage)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
                 .padding()
                 .background(.bar)
             }
         }
         .sheet(item: $importing) { action in
-            switch action {
-            case .vaccines: VaccineImportView(person: person, document: document)
-            case .prescription: PrescriptionImportView(person: person, document: document)
-            case .visitSummary: VisitSummaryImportView(person: person, document: document)
-            case .schoolPlan: SchoolPlanImportView(person: person, document: document)
-            }
+            DocumentImportSheet(person: person, document: document, action: action) { message = $0 }
+        }
+        .successBanner($message)
+        .confirmationDialog(
+            "Move this document to \(movingTo?.shortName ?? "")'s profile?",
+            isPresented: Binding(get: { movingTo != nil }, set: { if !$0 { movingTo = nil } }),
+            titleVisibility: .visible,
+            presenting: movingTo
+        ) { owner in
+            Button("Move to \(owner.shortName)") { move(to: owner) }
+        } message: { _ in
+            Text(document.importedAt == nil
+                 ? "It leaves \(person.shortName)'s documents. You won't need to scan it again."
+                 : "It leaves \(person.shortName)'s documents. Anything already added from it to \(person.shortName)'s records stays there, so check and remove it.")
         }
         .navigationTitle(document.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -204,6 +246,46 @@ struct DocumentDetailView: View {
         .sheet(isPresented: $isEditing) {
             NavigationStack { DocumentEditView(person: person, document: document) }
         }
+    }
+
+    private func move(to owner: Person) {
+        document.person = owner
+        // The provider stays: it's shared. What it said still needs adding for the right person.
+        document.importedAt = nil
+        dismiss()
+    }
+}
+
+/// "This looks like Owen's document", with Move and Keep.
+struct MisfiledNotice: View {
+    let filedUnder: Person
+    let owner: Person
+    var moveTitle: String? = nil
+    let onMove: () -> Void
+    let onKeep: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label {
+                Text("This looks like **\(owner.displayName)**'s document, not \(filedUnder.shortName)'s.")
+            } icon: {
+                Image(systemName: "person.crop.circle.badge.exclamationmark")
+                    .foregroundStyle(.orange)
+            }
+            .font(.subheadline)
+            HStack {
+                Button(moveTitle ?? "Move to \(owner.shortName)", action: onMove)
+                    .buttonStyle(.borderedProminent)
+                Button("It's \(filedUnder.shortName)'s", action: onKeep)
+                    .buttonStyle(.bordered)
+            }
+            .font(.subheadline)
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.12))
     }
 }
 
@@ -247,9 +329,16 @@ struct DocumentEditView: View {
     let document: HealthDocument?
     /// The type a new document starts as, e.g. an IEP added from the school details.
     var initialKind: DocumentKind? = nil
+    /// Open the camera right away, for a Scan button in a record list.
+    var startsScanning = false
+    /// Called with a short message after the document is saved and anything in it added.
+    var onFinished: ((String) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.recordAccess) private var access
     @Query(sort: \Provider.name) private var providers: [Provider]
+    @Query(sort: \Person.name) private var family: [Person]
     @State private var title = ""
     @State private var kind = DocumentKind.labResults
     @State private var date: Date?
@@ -263,13 +352,58 @@ struct DocumentEditView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var error: String?
     @State private var didLoad = false
+    /// Who the document is saved to: another family member when the page names them.
+    @State private var owner: Person?
+    @State private var keptOwnerID: UUID?
+    /// Add what the document says (vaccines, a medication, …) right after saving.
+    @State private var addContents = true
+    @State private var review: DocumentReview?
+    @State private var savedMessage: String?
+
+    private var target: Person { owner ?? person }
+
+    /// What a new document's text can be added as, once it has been read.
+    private var offeredImport: DocumentImport? {
+        guard document == nil, pdfData != nil, !isReading, access.canEdit else { return nil }
+        return DocumentImport.offered(kind: kind, text: recognizedText)
+    }
+
+    private var willReview: Bool { offeredImport != nil && addContents }
+
+    /// Another family member the pages name, if they don't seem to be this person's.
+    private var namedOwner: Person? {
+        guard owner == nil, pdfData != nil, !isReading,
+              let other = DocumentOwner.otherOwner(of: recognizedText, filedUnder: person, family: family),
+              other.id != keptOwnerID else { return nil }
+        return other
+    }
 
     var body: some View {
         EditorForm(
             title: document == nil ? "New document" : "Edit document",
             canSave: pdfData != nil && !isReading,
-            onSave: save
+            saveTitle: willReview ? "Next" : "Save",
+            dismissesOnSave: !willReview,
+            onSave: saveAndReview
         ) {
+            if let other = namedOwner {
+                Section {
+                    MisfiledNotice(filedUnder: person, owner: other, moveTitle: "Save to \(other.shortName) instead",
+                                   onMove: { owner = other }, onKeep: { keptOwnerID = other.id })
+                        .listRowInsets(EdgeInsets())
+                }
+            } else if let owner {
+                Section {
+                    HStack {
+                        Label("Saving to \(owner.shortName)'s documents", systemImage: "person.crop.circle.badge.checkmark")
+                        Spacer()
+                        Button("Undo") {
+                            keptOwnerID = owner.id
+                            self.owner = nil
+                        }
+                    }
+                }
+            }
             Section {
                 if let pdfData {
                     HStack(spacing: 12) {
@@ -318,7 +452,26 @@ struct DocumentEditView: View {
                 DateField(label: "Date", date: $date)
                 ProviderPicker(person: person, selection: $providerChoice, label: "From")
             }
+            if let action = offeredImport {
+                Section {
+                    Toggle(isOn: $addContents) {
+                        Label(action.buttonTitle, systemImage: action.systemImage)
+                    }
+                } footer: {
+                    Text(addContents
+                         ? "After you tap Next, check what was read before it's added to \(target.shortName)'s \(action.destination)."
+                         : "You can add it later from the document.")
+                }
+            }
             Section { NotesField(text: $notes) }
+        }
+        .sheet(item: $review, onDismiss: {
+            if let savedMessage { onFinished?(savedMessage) }
+            dismiss()
+        }) { review in
+            DocumentImportSheet(person: review.person, document: review.document, action: review.action) { added in
+                savedMessage = added
+            }
         }
         .fullScreenCover(isPresented: $isScanning) {
             MultiPageScanner { images in
@@ -363,8 +516,9 @@ struct DocumentEditView: View {
             guard let document else {
                 if let initialKind {
                     kind = initialKind
-                    title = initialKind == .iep ? "IEP" : initialKind.label
+                    title = Self.defaultTitle(for: initialKind)
                 }
+                if startsScanning, VNDocumentCameraViewController.isSupported { isScanning = true }
                 return
             }
             title = document.title
@@ -382,12 +536,42 @@ struct DocumentEditView: View {
         pdfData = data
         isReading = true
         Task {
-            recognizedText = await DocumentPDF.text(of: data)
+            let text = await DocumentPDF.text(of: data)
+            recognizedText = text
             isReading = false
+            // A new document from the general Add button takes the type its pages read as.
+            if document == nil, initialKind == nil, kind == .labResults || kind == .other,
+               let action = DocumentImport.offered(kind: .other, text: text) {
+                kind = action.documentKind(for: text)
+            }
+            // One scanned from the school details can turn out to be the other kind of plan.
+            if document == nil, kind.isSchoolPlan,
+               let read = SchoolPlanParser.planKind(of: text).documentKind, read != kind {
+                if title == Self.defaultTitle(for: kind) { title = Self.defaultTitle(for: read) }
+                kind = read
+            }
         }
     }
 
-    private func save() {
+    private func saveAndReview() {
+        let saved = save()
+        let movedMessage = owner.map { "Saved to \($0.shortName)'s documents" }
+        if willReview, let action = offeredImport {
+            savedMessage = movedMessage
+            review = DocumentReview(person: target, document: saved, action: action)
+        } else {
+            onFinished?(movedMessage ?? "Saved to Documents")
+        }
+    }
+
+    /// The title a new document of this type starts with.
+    private static func defaultTitle(for kind: DocumentKind) -> String {
+        kind == .iep ? "IEP" : kind.label
+    }
+
+    @discardableResult
+    private func save() -> HealthDocument {
+        let person = self.target
         let target = document ?? {
             let new = HealthDocument(title: title.trimmed, kind: kind)
             modelContext.insert(new)
@@ -409,6 +593,7 @@ struct DocumentEditView: View {
             if kind == .plan504 { person.schoolPlan = .plan504 }
             if kind == .iep { person.schoolPlan = .iep }
         }
+        return target
     }
 }
 
@@ -438,14 +623,17 @@ enum DocumentImport: String, Identifiable {
 
     /// What to offer for this document: by its type first, then by what its text reads like.
     static func offered(for document: HealthDocument) -> DocumentImport? {
-        switch document.kind {
+        offered(kind: document.kind, text: document.recognizedText)
+    }
+
+    static func offered(kind: DocumentKind, text: String) -> DocumentImport? {
+        switch kind {
         case .vaccineRecord: return .vaccines
         case .prescription: return .prescription
         case .visitSummary: return .visitSummary
         case .plan504, .iep: return .schoolPlan
         default: break
         }
-        let text = document.recognizedText
         if VaccineRecordParser.looksLikeVaccineRecord(text) { return .vaccines }
         if SchoolPlanParser.looksLikeSchoolPlan(text) { return .schoolPlan }
         // A visit summary often lists medications too, so it's checked before prescriptions.

@@ -7,6 +7,8 @@ import SwiftUI
 struct PrescriptionImportView: View {
     let person: Person
     let document: HealthDocument
+    /// Called with a short message after the medication is saved.
+    var onFinished: ((String) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var result: PrescriptionParser.Result?
@@ -18,7 +20,11 @@ struct PrescriptionImportView: View {
                     person: person,
                     medication: existingMedication(for: result),
                     draft: result,
-                    draftSource: document.displayTitle
+                    draftSource: document.displayTitle,
+                    onSaved: {
+                        document.importedAt = .now
+                        onFinished?("Saved \(result.name.isBlank ? "the medication" : result.name) in Medications")
+                    }
                 )
             } else {
                 Form {

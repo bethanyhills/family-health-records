@@ -9,8 +9,10 @@ struct PersonDetailView: View {
 
     @State private var isEditing = false
     @State private var isEditingSchool = false
+    @State private var message: String?
     @State private var isShowingUnlock = false
     @State private var addingPlanKind: DocumentKind?
+    @State private var scanningPlan = false
 
     var body: some View {
         List {
@@ -90,7 +92,12 @@ struct PersonDetailView: View {
                 }
             }
 
-            SchoolSection(person: person, onEdit: { isEditingSchool = true }, onAddPlanDocument: { addingPlanKind = $0 })
+            SchoolSection(
+                person: person,
+                onEdit: { isEditingSchool = true },
+                onAddPlanDocument: { scanningPlan = false; addingPlanKind = $0 },
+                onScanPlanDocument: { scanningPlan = true; addingPlanKind = $0 }
+            )
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
@@ -127,11 +134,12 @@ struct PersonDetailView: View {
             NavigationStack { SchoolEditView(person: person) }
         }
         .sheet(item: $addingPlanKind) { kind in
-            NavigationStack { DocumentEditView(person: person, document: nil, initialKind: kind) }
+            NavigationStack { DocumentEditView(person: person, document: nil, initialKind: kind, startsScanning: scanningPlan) { message = $0 } }
         }
         .sheet(isPresented: $isShowingUnlock) {
             UnlockView()
         }
+        .successBanner($message)
     }
 
     private var header: some View {

@@ -30,6 +30,18 @@ enum BodyMeasurement {
             }
         }
 
+        /// This height written in `unit`, e.g. to match how the profile already has it.
+        func written(in unit: HeightUnit) -> Height {
+            guard unit != self.unit else { return self }
+            switch unit {
+            case .centimeters:
+                return Height(unit: .centimeters, centimeters: Int((Double(feet * 12 + inches) * 2.54).rounded()))
+            case .feetInches:
+                let total = Int((Double(centimeters) / 2.54).rounded())
+                return Height(unit: .feetInches, feet: total / 12, inches: total % 12)
+            }
+        }
+
         /// The same height in the other unit, e.g. "(163 cm)".
         var conversion: String {
             switch unit {
@@ -51,6 +63,12 @@ enum BodyMeasurement {
         var text: String {
             guard let amount, amount > 0 else { return "" }
             return "\(BodyMeasurement.number(amount)) \(unit.rawValue)"
+        }
+
+        func written(in unit: WeightUnit) -> Weight {
+            guard unit != self.unit, let amount else { return self }
+            let converted = unit == .kilograms ? amount * 0.45359237 : amount / 0.45359237
+            return Weight(unit: unit, amount: (converted * 10).rounded() / 10)
         }
 
         var conversion: String {
@@ -97,6 +115,22 @@ enum BodyMeasurement {
         if lower.contains("kg") { return Weight(unit: .kilograms, amount: number) }
         if number != nil { return Weight(unit: .pounds, amount: number) }
         return Weight(unit: defaultWeightUnit, amount: nil)
+    }
+
+    /// A measurement read from a document, written the way `current` is ("130 lb" stays in
+    /// pounds), or "" when it says the same as `current`.
+    static func update(height read: String, current: String) -> String {
+        guard !read.isEmpty else { return "" }
+        var new = parseHeight(read)
+        if !current.isBlank { new = new.written(in: parseHeight(current).unit) }
+        return new.text == parseHeight(current).text ? "" : new.text
+    }
+
+    static func update(weight read: String, current: String) -> String {
+        guard !read.isEmpty else { return "" }
+        var new = parseWeight(read)
+        if !current.isBlank { new = new.written(in: parseWeight(current).unit) }
+        return new.text == parseWeight(current).text ? "" : new.text
     }
 
     static func number(_ value: Double) -> String {
