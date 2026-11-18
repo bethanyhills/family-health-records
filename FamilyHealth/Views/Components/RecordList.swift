@@ -139,6 +139,10 @@ struct RecordRow: View {
 struct EditorForm<Content: View>: View {
     let title: String
     let canSave: Bool
+    /// The confirm button's title, e.g. "Next" when another step follows.
+    var saveTitle = "Save"
+    /// False when saving leads to another step that closes the sheet itself.
+    var dismissesOnSave = true
     let onSave: () -> Void
     @ViewBuilder let content: Content
 
@@ -155,9 +159,9 @@ struct EditorForm<Content: View>: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(saveTitle) {
                         onSave()
-                        dismiss()
+                        if dismissesOnSave { dismiss() }
                     }
                     .disabled(!canSave)
                 }

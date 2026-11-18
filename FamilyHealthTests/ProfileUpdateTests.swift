@@ -43,7 +43,7 @@ final class ProfileUpdateTests: XCTestCase {
         try context.save()
 
         let archive = try BackupArchive(context: context)
-        XCTAssertEqual(archive.version, 7)
+        XCTAssertEqual(archive.version, 8)
         let target = ModelContext(ModelStore.makeContainer(inMemory: true))
         try archive.restore(into: target)
         let restored = try XCTUnwrap(try target.fetch(FetchDescriptor<Person>()).first)

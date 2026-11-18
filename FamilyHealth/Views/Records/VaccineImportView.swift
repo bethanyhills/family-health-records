@@ -6,6 +6,8 @@ import SwiftUI
 struct VaccineImportView: View {
     let person: Person
     let document: HealthDocument
+    /// Called with a short message after the vaccines are added.
+    var onFinished: ((String) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -125,6 +127,11 @@ struct VaccineImportView: View {
     }
 
     private func save() {
+        defer {
+            document.importedAt = .now
+            let count = chosen.count
+            onFinished?("Added \(count) vaccine\(count == 1 ? "" : "s") to Immunizations")
+        }
         for candidate in chosen {
             let shot = Immunization(vaccine: candidate.found.vaccine.trimmed, date: candidate.found.date)
             shot.notes = "From \(document.displayTitle)"

@@ -6,6 +6,8 @@ import SwiftUI
 struct VisitSummaryImportView: View {
     let person: Person
     let document: HealthDocument
+    /// Called with a short message after the visit note is saved.
+    var onFinished: ((String) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var result: VisitSummaryParser.Result?
@@ -13,7 +15,10 @@ struct VisitSummaryImportView: View {
     var body: some View {
         NavigationStack {
             if let result, !result.isEmpty {
-                VisitEditView(person: person, visit: nil, draft: result, draftSource: document.displayTitle)
+                VisitEditView(person: person, visit: nil, draft: result, draftSource: document.displayTitle, onSaved: {
+                    document.importedAt = .now
+                    onFinished?("Added a visit note from this summary")
+                })
             } else {
                 Form {
                     if result == nil {

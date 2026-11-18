@@ -3,7 +3,7 @@ import SwiftData
 
 /// A plain, versioned copy of every record, used for the encrypted backup file.
 struct BackupArchive: Codable, Equatable {
-    static let currentVersion = 7
+    static let currentVersion = 8
 
     var version = BackupArchive.currentVersion
     var exportedAt = Date()
@@ -57,6 +57,8 @@ struct BackupArchive: Codable, Equatable {
         var pdf: Data?
         var createdAt: Date
         var providerID: UUID?
+        /// Added in version 8.
+        var importedAt: Date? = nil
     }
 
     struct VisitRecord: Codable, Equatable {
@@ -194,7 +196,7 @@ extension BackupArchive {
                 documents: p.documents.sorted { $0.createdAt < $1.createdAt }.map {
                     DocumentRecord(title: $0.title, kind: $0.kindRaw, notes: $0.notes, recognizedText: $0.recognizedText,
                                    date: $0.date, pageCount: $0.pageCount, pdf: $0.pdfData, createdAt: $0.createdAt,
-                                   providerID: $0.provider?.id)
+                                   providerID: $0.provider?.id, importedAt: $0.importedAt)
                 },
                 visits: p.visits.sorted { $0.createdAt < $1.createdAt }.map {
                     VisitRecord(reason: $0.reason, notes: $0.notes, followUp: $0.followUp, date: $0.date,
@@ -535,6 +537,7 @@ extension BackupArchive {
             item.pageCount = r.pageCount
             item.pdfData = r.pdf
             item.createdAt = r.createdAt
+            item.importedAt = r.importedAt
             item.person = person
             if let providerID = r.providerID { providerLinks.documents[providerID, default: []].append(item) }
         }

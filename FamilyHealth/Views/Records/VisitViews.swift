@@ -50,6 +50,8 @@ struct VisitEditView: View {
     var draft: VisitSummaryParser.Result? = nil
     /// The document the draft was read from.
     var draftSource: String? = nil
+    /// Called after Save, e.g. to show what was added from a document.
+    var onSaved: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Provider.name) private var providers: [Provider]
@@ -151,6 +153,7 @@ struct VisitEditView: View {
     }
 
     private func save() {
+        defer { onSaved?() }
         let target = visit ?? {
             let new = Visit()
             modelContext.insert(new)

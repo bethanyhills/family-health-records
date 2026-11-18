@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-/// Version 1.5: adds a Social Security number to each person. Uses the live model classes.
-enum SchemaV6: VersionedSchema {
-    static let versionIdentifier = Schema.Version(1, 5, 0)
+/// Version 1.6: remembers when a document's contents were added to the records. Uses the live model classes.
+enum SchemaV7: VersionedSchema {
+    static let versionIdentifier = Schema.Version(1, 6, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -30,7 +30,7 @@ enum SchemaV6: VersionedSchema {
 /// add a new version with the live classes, add a stage below, and point
 /// `ModelStore.currentSchema` at the new version.
 enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self] }
+    static var schemas: [any VersionedSchema.Type] { [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self, SchemaV7.self] }
 
     static var stages: [MigrationStage] {
         [
@@ -39,6 +39,7 @@ enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
             .lightweight(fromVersion: SchemaV3.self, toVersion: SchemaV4.self),
             .lightweight(fromVersion: SchemaV4.self, toVersion: SchemaV5.self),
             .lightweight(fromVersion: SchemaV5.self, toVersion: SchemaV6.self),
+            .lightweight(fromVersion: SchemaV6.self, toVersion: SchemaV7.self),
         ]
     }
 }
@@ -46,7 +47,7 @@ enum FamilyHealthMigrationPlan: SchemaMigrationPlan {
 enum ModelStore {
     static let storeName = "FamilyHealth"
     /// The newest schema version, the one that uses the live model classes.
-    static let currentSchema: any VersionedSchema.Type = SchemaV6.self
+    static let currentSchema: any VersionedSchema.Type = SchemaV7.self
 
     /// Records live only on this device. `cloudKitDatabase: .none` keeps
     /// SwiftData from ever syncing health data to iCloud (App Store guideline 5.1.3).
