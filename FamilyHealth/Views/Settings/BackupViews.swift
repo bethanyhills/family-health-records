@@ -271,7 +271,7 @@ struct BackupPasswordView: View {
             }
             if let error {
                 Text(error)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.danger)
             }
         }
         .brandedBackground()

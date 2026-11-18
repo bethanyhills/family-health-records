@@ -22,7 +22,7 @@ struct DateField: View {
             if let problem {
                 Text(problem)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.danger)
             }
         }
         .onAppear {
@@ -67,16 +67,16 @@ struct HeightField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            AdaptiveStack {
                 Text("Height")
                 Spacer()
-                Picker("Unit", selection: $height.unit) {
+                Picker("Height unit", selection: $height.unit) {
                     ForEach(BodyMeasurement.HeightUnit.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
             }
-            HStack(spacing: 12) {
+            AdaptiveStack(spacing: 12) {
                 switch height.unit {
                 case .feetInches:
                     NumberBox(value: $height.feet, unit: "ft", range: 0...8)
@@ -107,16 +107,18 @@ struct WeightField: View {
     @Binding var text: String
     @State private var weight = BodyMeasurement.Weight(unit: BodyMeasurement.defaultWeightUnit)
     @State private var didLoad = false
+    @ScaledMetric private var amountWidth: CGFloat = 80
 
     var body: some View {
-        HStack(spacing: 12) {
+        AdaptiveStack(spacing: 12) {
             Text("Weight")
             TextField("0", value: $weight.amount, format: .number.precision(.fractionLength(0...1)))
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
-                .frame(maxWidth: 80)
+                .frame(maxWidth: amountWidth)
+                .accessibilityLabel("Weight")
                 .textFieldStyle(.roundedBorder)
-            Picker("Unit", selection: $weight.unit) {
+            Picker("Weight unit", selection: $weight.unit) {
                 ForEach(BodyMeasurement.WeightUnit.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
@@ -139,9 +141,19 @@ struct WeightField: View {
 }
 
 private struct NumberBox: View {
+    private var unitName: String {
+        switch unit {
+        case "ft": "Feet"
+        case "in": "Inches"
+        case "cm": "Centimeters"
+        default: unit
+        }
+    }
+
     @Binding var value: Int
     let unit: String
     let range: ClosedRange<Int>
+    @ScaledMetric private var boxWidth: CGFloat = 56
 
     var body: some View {
         HStack(spacing: 4) {
@@ -151,10 +163,12 @@ private struct NumberBox: View {
             ), format: .number)
             .keyboardType(.numberPad)
             .multilineTextAlignment(.trailing)
-            .frame(width: 56)
+            .frame(width: boxWidth)
             .textFieldStyle(.roundedBorder)
+            .accessibilityLabel(unitName)
             Text(unit)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
     }
 }
@@ -181,6 +195,7 @@ struct ChoiceTextField: View {
             } label: {
                 Image(systemName: "list.bullet.circle")
                     .imageScale(.large)
+                    .minimumTapTarget()
             }
             .accessibilityLabel("Choose \(placeholder.lowercased())")
         }

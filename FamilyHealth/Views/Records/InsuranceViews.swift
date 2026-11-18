@@ -249,7 +249,7 @@ struct CardPhotoField: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(label) of card")
             }
-            HStack(spacing: 16) {
+            AdaptiveStack(spacing: 16) {
                 if VNDocumentCameraViewController.isSupported {
                     Button {
                         isScanning = true

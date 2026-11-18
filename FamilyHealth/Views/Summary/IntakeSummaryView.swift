@@ -38,12 +38,14 @@ struct IntakeSummaryView: View {
                                 }
                                 Spacer()
                                 Image(systemName: copiedItem?.id == item.id ? "checkmark.circle.fill" : "doc.on.doc")
-                                    .foregroundStyle(copiedItem?.id == item.id ? Color.green : Color.secondary)
+                                    .foregroundStyle(copiedItem?.id == item.id ? Theme.success : Color.secondary)
                                     .imageScale(.small)
+                                    .accessibilityHidden(true)
                             }
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityValue(copiedItem?.id == item.id ? "Copied" : "")
                         .accessibilityHint("Copies \(item.label)")
                     }
                 }
