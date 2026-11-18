@@ -329,6 +329,8 @@ struct DocumentEditView: View {
     let document: HealthDocument?
     /// The type a new document starts as, e.g. an IEP added from the school details.
     var initialKind: DocumentKind? = nil
+    /// Open the camera right away, for a Scan button in a record list.
+    var startsScanning = false
     /// Called with a short message after the document is saved and anything in it added.
     var onFinished: ((String) -> Void)? = nil
 
@@ -514,8 +516,9 @@ struct DocumentEditView: View {
             guard let document else {
                 if let initialKind {
                     kind = initialKind
-                    title = initialKind == .iep ? "IEP" : initialKind.label
+                    title = Self.defaultTitle(for: initialKind)
                 }
+                if startsScanning, VNDocumentCameraViewController.isSupported { isScanning = true }
                 return
             }
             title = document.title
@@ -541,6 +544,12 @@ struct DocumentEditView: View {
                let action = DocumentImport.offered(kind: .other, text: text) {
                 kind = action.documentKind(for: text)
             }
+            // One scanned from the school details can turn out to be the other kind of plan.
+            if document == nil, kind.isSchoolPlan,
+               let read = SchoolPlanParser.planKind(of: text).documentKind, read != kind {
+                if title == Self.defaultTitle(for: kind) { title = Self.defaultTitle(for: read) }
+                kind = read
+            }
         }
     }
 
@@ -550,9 +559,14 @@ struct DocumentEditView: View {
         if willReview, let action = offeredImport {
             savedMessage = movedMessage
             review = DocumentReview(person: target, document: saved, action: action)
-        } else if let movedMessage {
-            onFinished?(movedMessage)
+        } else {
+            onFinished?(movedMessage ?? "Saved to Documents")
         }
+    }
+
+    /// The title a new document of this type starts with.
+    private static func defaultTitle(for kind: DocumentKind) -> String {
+        kind == .iep ? "IEP" : kind.label
     }
 
     @discardableResult

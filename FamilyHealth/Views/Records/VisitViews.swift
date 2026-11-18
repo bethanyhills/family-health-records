@@ -20,7 +20,8 @@ struct VisitsView: View {
             row: { visit in
                 RecordRow(title: VisitRow.title(for: visit), details: VisitRow.details(for: visit))
             },
-            editor: { VisitEditView(person: person, visit: $0) }
+            editor: { VisitEditView(person: person, visit: $0) },
+            scan: RecordScan(person: person, kind: .visitSummary, title: "Scan a visit summary")
         )
     }
 }

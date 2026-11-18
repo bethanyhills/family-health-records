@@ -9,7 +9,7 @@ struct ImmunizationsView: View {
         RecordList(
             title: "Immunizations",
             emptyTitle: "No immunizations",
-            emptyMessage: "Add vaccines with the date and dose. Have a vaccine record? Keep it in Documents as a Vaccine record, then tap Add these vaccines to Immunizations.",
+            emptyMessage: "Add vaccines with the date and dose. Have a vaccine record? Scan it and the vaccines on it are added for you.",
             systemImage: "syringe",
             sections: [RecordSection(nil, sorted)],
             row: { shot in
@@ -18,7 +18,8 @@ struct ImmunizationsView: View {
                     details: [shot.doseNumber.isBlank ? "" : "Dose \(shot.doseNumber)", shot.date?.shortDate ?? "", shot.location]
                 )
             },
-            editor: { ImmunizationEditView(person: person, immunization: $0) }
+            editor: { ImmunizationEditView(person: person, immunization: $0) },
+            scan: RecordScan(person: person, kind: .vaccineRecord, title: "Scan a vaccine record")
         )
     }
 }

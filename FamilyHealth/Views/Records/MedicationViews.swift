@@ -21,7 +21,8 @@ struct MedicationsView: View {
                     details: [medication.dose, medication.frequency, medication.reason.isBlank ? "" : "for \(medication.reason)"]
                 )
             },
-            editor: { MedicationEditView(person: person, medication: $0) }
+            editor: { MedicationEditView(person: person, medication: $0) },
+            scan: RecordScan(person: person, kind: .prescription, title: "Scan a label")
         )
     }
 }

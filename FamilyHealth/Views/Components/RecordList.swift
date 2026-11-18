@@ -13,8 +13,19 @@ struct RecordSection<Item: PersistentModel>: Identifiable {
     }
 }
 
+/// Scanning a paper from a record list: the document is filed in the person's Documents,
+/// and what it says is offered for this list, e.g. a medication label from Medications.
+struct RecordScan {
+    let person: Person
+    let kind: DocumentKind
+    /// The button's name, e.g. "Scan a label".
+    let title: String
+    /// Open this list's blank editor afterward, e.g. to add the surgery from its discharge papers.
+    var thenAddRecord = false
+}
+
 /// Shared list screen for one kind of record: sections of rows, swipe to delete,
-/// tap to edit, and a + button that opens a blank editor.
+/// tap to edit, a + button that opens a blank editor, and optionally a Scan button.
 struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
     let title: String
     let emptyTitle: String
@@ -25,11 +36,15 @@ struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
     @ViewBuilder let editor: (Item?) -> Editor
     /// Called instead of deleting the item, e.g. to unlink a shared provider.
     var onRemove: ((Item) -> Void)?
+    var scan: RecordScan?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.recordAccess) private var access
     @State private var isAdding = false
     @State private var editing: Item?
+    @State private var isScanning = false
+    @State private var didScan = false
+    @State private var message: String?
 
     var body: some View {
         List {
@@ -71,12 +86,29 @@ struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
                     if access.canEdit {
                         Button("Add") { isAdding = true }
                             .buttonStyle(.borderedProminent)
+                        if let scan {
+                            Button {
+                                startScan()
+                            } label: {
+                                Label(scan.title, systemImage: "doc.viewfinder")
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                 }
             }
         }
         .navigationTitle(title)
         .toolbar {
+            if access.canEdit, let scan {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        startScan()
+                    } label: {
+                        Label(scan.title, systemImage: "doc.viewfinder")
+                    }
+                }
+            }
             if access.canEdit {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -93,6 +125,24 @@ struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
         .sheet(item: $editing) { item in
             NavigationStack { editor(item) }
         }
+        .sheet(isPresented: $isScanning, onDismiss: {
+            if didScan, scan?.thenAddRecord == true { isAdding = true }
+        }) {
+            if let scan {
+                NavigationStack {
+                    DocumentEditView(person: scan.person, document: nil, initialKind: scan.kind, startsScanning: true) { saved in
+                        didScan = true
+                        message = saved
+                    }
+                }
+            }
+        }
+        .successBanner($message)
+    }
+
+    private func startScan() {
+        didScan = false
+        isScanning = true
     }
 }
 
