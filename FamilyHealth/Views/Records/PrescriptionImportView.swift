@@ -44,6 +44,7 @@ struct PrescriptionImportView: View {
                         }
                     }
                 }
+                .brandedBackground()
                 .navigationTitle("Prescription")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

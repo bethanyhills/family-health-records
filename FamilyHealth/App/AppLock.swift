@@ -98,7 +98,7 @@ struct LockView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .background(Theme.background)
         .task { await appLock.unlock() }
     }
 }

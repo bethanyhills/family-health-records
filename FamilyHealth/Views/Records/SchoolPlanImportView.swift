@@ -57,6 +57,7 @@ struct SchoolPlanImportView: View {
                     }
                 }
             }
+            .brandedBackground()
             .autocorrectionDisabled()
             .navigationTitle("School plan")
             .navigationBarTitleDisplayMode(.inline)

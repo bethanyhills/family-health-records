@@ -76,6 +76,7 @@ struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
                 }
             }
         }
+        .brandedBackground()
         .overlay {
             if sections.allSatisfy({ $0.items.isEmpty }) {
                 ContentUnavailableView {
@@ -200,6 +201,7 @@ struct EditorForm<Content: View>: View {
 
     var body: some View {
         Form { content }
+            .brandedBackground()
             // Medical words and names get "corrected" into the wrong thing.
             .autocorrectionDisabled()
             .navigationTitle(title)

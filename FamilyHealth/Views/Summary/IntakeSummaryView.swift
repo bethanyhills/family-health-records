@@ -49,6 +49,7 @@ struct IntakeSummaryView: View {
                 }
             }
         }
+        .brandedBackground()
         .navigationTitle("Intake summary")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

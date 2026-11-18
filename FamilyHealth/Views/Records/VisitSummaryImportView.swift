@@ -39,6 +39,7 @@ struct VisitSummaryImportView: View {
                         }
                     }
                 }
+                .brandedBackground()
                 .navigationTitle("Visit summary")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

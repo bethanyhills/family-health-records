@@ -54,10 +54,8 @@ struct RootView: View {
 struct PrivacyCover: View {
     var body: some View {
         ZStack {
-            Rectangle().fill(.background)
-            Image(systemName: "heart.text.square.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.tint)
+            Rectangle().fill(Theme.background)
+            BrandMark(size: 80)
         }
         .ignoresSafeArea()
     }

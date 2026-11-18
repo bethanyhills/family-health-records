@@ -60,6 +60,7 @@ struct SettingsView: View {
                     LabeledContent("Version", value: version)
                 }
             }
+            .brandedBackground()
             .navigationTitle("Settings")
             .backupPresentations(backup)
             .sheet(isPresented: $isShowingUnlock) {

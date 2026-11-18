@@ -54,6 +54,7 @@ struct VaccineImportView: View {
                     }
                 }
             }
+            .brandedBackground()
             .autocorrectionDisabled()
             .navigationTitle("Vaccines found")
             .navigationBarTitleDisplayMode(.inline)
@@ -160,6 +161,7 @@ private struct CandidateEditView: View {
                 ), allowsFuture: false)
             }
         }
+        .brandedBackground()
         .navigationTitle("Vaccine")
         .navigationBarTitleDisplayMode(.inline)
     }

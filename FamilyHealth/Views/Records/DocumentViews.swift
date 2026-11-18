@@ -34,6 +34,7 @@ struct DocumentsView: View {
                 }
             }
         }
+        .brandedBackground()
         .overlay {
             if person.documents.isEmpty {
                 ContentUnavailableView {

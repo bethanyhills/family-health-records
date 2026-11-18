@@ -120,6 +120,7 @@ struct PersonDetailView: View {
                 }
             }
         }
+        .brandedBackground()
         .navigationTitle(person.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -99,6 +99,7 @@ struct PersonEditView: View {
                     .lineLimit(3...8)
             }
         }
+        .brandedBackground()
         .autocorrectionDisabled()
         .navigationTitle(person == nil ? "New family member" : "Edit")
         .navigationBarTitleDisplayMode(.inline)
