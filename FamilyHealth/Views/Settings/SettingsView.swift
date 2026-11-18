@@ -46,6 +46,8 @@ struct SettingsView: View {
                     Label("Records are encrypted whenever your iPhone is locked.", systemImage: "lock.fill")
                 }
 
+                FeedbackSection(version: version)
+
                 Section {
                     Text("Family Health Binder is a place to keep your own records. It doesn't give medical advice. Always check with your doctor or pharmacist before making medical decisions.")
                         .font(.callout)
