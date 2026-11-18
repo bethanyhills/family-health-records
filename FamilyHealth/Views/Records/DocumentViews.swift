@@ -135,7 +135,7 @@ struct DocumentDetailView: View {
 
     @Environment(\.recordAccess) private var access
     @State private var isEditing = false
-    @State private var isImportingVaccines = false
+    @State private var importing: DocumentImport?
 
     var body: some View {
         Group {
@@ -164,12 +164,11 @@ struct DocumentDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if document.pdfData != nil, access.canEdit,
-               document.kind == .vaccineRecord || VaccineRecordParser.looksLikeVaccineRecord(document.recognizedText) {
+            if document.pdfData != nil, access.canEdit, let action = DocumentImport.offered(for: document) {
                 Button {
-                    isImportingVaccines = true
+                    importing = action
                 } label: {
-                    Label("Add these vaccines to Immunizations", systemImage: "syringe")
+                    Label(action.buttonTitle, systemImage: action.systemImage)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -177,8 +176,11 @@ struct DocumentDetailView: View {
                 .background(.bar)
             }
         }
-        .sheet(isPresented: $isImportingVaccines) {
-            VaccineImportView(person: person, document: document)
+        .sheet(item: $importing) { action in
+            switch action {
+            case .vaccines: VaccineImportView(person: person, document: document)
+            case .prescription: PrescriptionImportView(person: person, document: document)
+            }
         }
         .navigationTitle(document.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -405,5 +407,39 @@ struct DocumentEditView: View {
             if kind == .plan504 { person.schoolPlan = .plan504 }
             if kind == .iep { person.schoolPlan = .iep }
         }
+    }
+}
+
+/// Saving what a document says into the right part of the app, after the person checks it.
+enum DocumentImport: String, Identifiable {
+    case vaccines, prescription
+
+    var id: String { rawValue }
+
+    var buttonTitle: String {
+        switch self {
+        case .vaccines: "Add these vaccines to Immunizations"
+        case .prescription: "Add this medication"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .vaccines: "syringe"
+        case .prescription: "pills"
+        }
+    }
+
+    /// What to offer for this document: by its type first, then by what its text reads like.
+    static func offered(for document: HealthDocument) -> DocumentImport? {
+        switch document.kind {
+        case .vaccineRecord: return .vaccines
+        case .prescription: return .prescription
+        default: break
+        }
+        let text = document.recognizedText
+        if VaccineRecordParser.looksLikeVaccineRecord(text) { return .vaccines }
+        if PrescriptionParser.looksLikePrescription(text) { return .prescription }
+        return nil
     }
 }
