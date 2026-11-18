@@ -23,6 +23,8 @@ final class Person {
     var communicationNeeds: String = ""
     /// An active 504 plan or IEP at school (1.4). The plan itself is kept in Documents.
     var schoolPlanRaw: String = SchoolPlan.noPlan.rawValue
+    /// Digits only (1.5). Shown masked; see `SocialSecurityNumber`.
+    var socialSecurityNumber: String = ""
     @Attribute(.externalStorage) var photoData: Data?
     var sortOrder: Int = 0
     var createdAt: Date = Date()

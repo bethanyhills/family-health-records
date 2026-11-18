@@ -14,6 +14,7 @@ struct PeopleListView: View {
     @State private var personToDelete: Person?
     @State private var searchText = ""
     @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
+    @AppStorage(FamilyTitle.key) private var familyTitle = ""
 
     var body: some View {
         NavigationStack {
@@ -27,7 +28,7 @@ struct PeopleListView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search all records")
-            .navigationTitle("Family")
+            .navigationTitle(FamilyTitle.display(familyTitle))
             .navigationDestination(for: Person.self) { person in
                 PersonDetailView(person: person)
             }
@@ -128,6 +129,12 @@ struct PeopleListView: View {
             }
             .deleteDisabled(!access.canEdit)
             .moveDisabled(!access.canEdit)
+
+            Section {
+            } footer: {
+                AppNameFooter()
+                    .padding(.top, 24)
+            }
         }
     }
 
@@ -135,7 +142,7 @@ struct PeopleListView: View {
         ContentUnavailableView {
             Label("Add your family", systemImage: "person.2.fill")
         } description: {
-            Text("Start with one person. Their medications, allergies, doctors and insurance will all live on their page.")
+            Text("Welcome to Family Health Binder. Start with one person. Their medications, allergies, doctors and insurance will all live on their page.")
         } actions: {
             if access.canEdit {
                 Button("Add a family member") {

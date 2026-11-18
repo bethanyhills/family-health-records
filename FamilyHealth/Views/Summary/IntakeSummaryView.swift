@@ -90,7 +90,7 @@ struct IntakeSummaryView: View {
     }
 
     private func copy(_ item: SummaryItem) {
-        UIPasteboard.general.string = item.value.isEmpty ? item.label : item.value
+        UIPasteboard.general.string = item.copyValue ?? (item.value.isEmpty ? item.label : item.value)
         withAnimation { copiedItem = item }
         Task {
             try? await Task.sleep(for: .seconds(1.5))

@@ -19,6 +19,7 @@ struct PersonEditView: View {
     @State private var weight = ""
     @State private var notes = ""
     @State private var communicationNeeds = ""
+    @State private var socialSecurityNumber = ""
     @State private var photoData: Data?
     @State private var photoItem: PhotosPickerItem?
     @State private var didLoad = false
@@ -81,6 +82,18 @@ struct PersonEditView: View {
                 Text("Interpreter, language, hearing, vision or speech needs. Shown first on the intake summary.")
             }
 
+            Section {
+                SocialSecurityField(digits: $socialSecurityNumber)
+            } header: {
+                Text("Social Security number")
+            } footer: {
+                if !socialSecurityNumber.isEmpty && !SocialSecurityNumber.isComplete(socialSecurityNumber) {
+                    Text("A Social Security number has 9 digits.")
+                } else {
+                    Text("Optional. Kept only on this iPhone and in your password-protected backups. Shown as the last 4 digits.")
+                }
+            }
+
             Section("Notes") {
                 TextField("Anything else worth remembering", text: $notes, axis: .vertical)
                     .lineLimit(3...8)
@@ -128,6 +141,7 @@ struct PersonEditView: View {
         weight = person.weight
         notes = person.notes
         communicationNeeds = person.communicationNeeds
+        socialSecurityNumber = person.socialSecurityNumber
         photoData = person.photoData
     }
 
@@ -148,6 +162,7 @@ struct PersonEditView: View {
         target.weight = weight
         target.notes = notes.trimmed
         target.communicationNeeds = communicationNeeds.trimmed
+        target.socialSecurityNumber = SocialSecurityNumber.digits(socialSecurityNumber)
         target.photoData = photoData
         dismiss()
     }
