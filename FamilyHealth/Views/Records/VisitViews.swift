@@ -51,8 +51,9 @@ struct VisitEditView: View {
     var draft: VisitSummaryParser.Result? = nil
     /// The document the draft was read from.
     var draftSource: String? = nil
-    /// Called after Save, e.g. to show what was added from a document.
-    var onSaved: (() -> Void)? = nil
+    /// Called after Save, e.g. to show what was added from a document. True when the
+    /// person's height or weight was updated from it.
+    var onSaved: ((_ updatedProfile: Bool) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Provider.name) private var providers: [Provider]
@@ -63,7 +64,19 @@ struct VisitEditView: View {
     @State private var followUp = ""
     @State private var followUpDate: Date?
     @State private var newConditions: Set<String> = []
+    @State private var updatesHeight = false
+    @State private var updatesWeight = false
     @State private var didLoad = false
+
+    /// The height and weight the summary gives, written like the profile's, when they differ.
+    private var newHeight: String { BodyMeasurement.update(height: draft?.height ?? "", current: person.height) }
+    private var newWeight: String { BodyMeasurement.update(weight: draft?.weight ?? "", current: person.weight) }
+
+    /// A summary older than another visit on file may not have the latest measurements.
+    private var isOlderThanAnotherVisit: Bool {
+        guard let summaryDate = draft?.date else { return false }
+        return person.visits.contains { $0.id != visit?.id && ($0.date ?? .distantPast) > summaryDate }
+    }
 
     var body: some View {
         EditorForm(title: visit == nil ? "New visit" : "Edit visit", canSave: true, onSave: save) {
@@ -113,6 +126,28 @@ struct VisitEditView: View {
                     Text("Turn on the diagnoses that are ongoing, so they show on the intake summary. A one-time illness can stay in this note.")
                 }
             }
+            if !newHeight.isEmpty || !newWeight.isEmpty {
+                Section {
+                    if !newHeight.isEmpty {
+                        Toggle(isOn: $updatesHeight) {
+                            Text("Update height to \(newHeight)")
+                            Text(person.height.isBlank ? "None on file" : "On file: \(person.height)")
+                        }
+                    }
+                    if !newWeight.isEmpty {
+                        Toggle(isOn: $updatesWeight) {
+                            Text("Update weight to \(newWeight)")
+                            Text(person.weight.isBlank ? "None on file" : "On file: \(person.weight)")
+                        }
+                    }
+                } header: {
+                    Text("\(person.shortName)'s profile")
+                } footer: {
+                    Text(isOlderThanAnotherVisit
+                         ? "This summary is older than another visit on file, so these may not be the latest measurements."
+                         : "Measured at this visit. Keeps the profile and intake summary current.")
+                }
+            }
         }
         .onAppear {
             guard !didLoad else { return }
@@ -125,7 +160,11 @@ struct VisitEditView: View {
                 followUp = visit.followUp
                 followUpDate = visit.followUpDate
             }
-            if let draft { apply(draft) }
+            if let draft {
+                apply(draft)
+                updatesHeight = !isOlderThanAnotherVisit
+                updatesWeight = !isOlderThanAnotherVisit
+            }
         }
     }
 
@@ -154,7 +193,16 @@ struct VisitEditView: View {
     }
 
     private func save() {
-        defer { onSaved?() }
+        var updatedProfile = false
+        defer { onSaved?(updatedProfile) }
+        if updatesHeight, !newHeight.isEmpty {
+            person.height = newHeight
+            updatedProfile = true
+        }
+        if updatesWeight, !newWeight.isEmpty {
+            person.weight = newWeight
+            updatedProfile = true
+        }
         let target = visit ?? {
             let new = Visit()
             modelContext.insert(new)

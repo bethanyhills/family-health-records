@@ -15,9 +15,11 @@ struct VisitSummaryImportView: View {
     var body: some View {
         NavigationStack {
             if let result, !result.isEmpty {
-                VisitEditView(person: person, visit: nil, draft: result, draftSource: document.displayTitle, onSaved: {
+                VisitEditView(person: person, visit: nil, draft: result, draftSource: document.displayTitle, onSaved: { updatedProfile in
                     document.importedAt = .now
-                    onFinished?("Added a visit note from this summary")
+                    onFinished?(updatedProfile
+                                ? "Added a visit note and updated \(person.shortName)'s height and weight"
+                                : "Added a visit note from this summary")
                 })
             } else {
                 Form {

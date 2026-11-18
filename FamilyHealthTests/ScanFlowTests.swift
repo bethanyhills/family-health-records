@@ -55,6 +55,30 @@ final class ScanFlowTests: XCTestCase {
         XCTAssertNil(DocumentImport.offered(kind: .labResults, text: "Ferritin 9 ng/mL"))
     }
 
+    func testHeightAndWeightFromAVisitSummary() {
+        let rows = ["After Visit Summary", "Visit date: 11/10/2026", "Vitals", "BP 100/60  Ht 4' 2.5\"  Wt 62 lb 8 oz",
+                    "Birth weight 7 lb 2 oz", "Diagnoses", "Well child check"]
+        let result = VisitSummaryParser.parse(rows: rows, now: TypedDate.parse("11/18/2026")!)
+        XCTAssertEqual(result.height, "4 ft 3 in")
+        XCTAssertEqual(result.weight, "62.5 lb")
+        XCTAssertEqual(VisitSummaryParser.height(in: ["Height: 127 cm"])?.text, "127 cm")
+        XCTAssertEqual(VisitSummaryParser.height(in: ["Ht: 1.27 m"])?.text, "127 cm")
+        XCTAssertEqual(VisitSummaryParser.weight(in: ["Weight: 28.1 kg"])?.text, "28.1 kg")
+        XCTAssertNil(VisitSummaryParser.weight(in: ["Birth weight: 7 lb 2 oz"]))
+        XCTAssertNil(VisitSummaryParser.height(in: ["Follow up in 2 weeks"]))
+    }
+
+    func testMeasurementsAreWrittenLikeTheProfileAndOnlyWhenNew() {
+        // Kept in the profile's units.
+        XCTAssertEqual(BodyMeasurement.update(weight: "28.1 kg", current: "58 lb"), "62 lb")
+        XCTAssertEqual(BodyMeasurement.update(height: "4 ft 2 in", current: "120 cm"), "127 cm")
+        // Nothing to offer when it's the same, or when nothing was read.
+        XCTAssertEqual(BodyMeasurement.update(height: "4 ft 2 in", current: "4 ft 2 in"), "")
+        XCTAssertEqual(BodyMeasurement.update(weight: "", current: "58 lb"), "")
+        // An empty profile takes it as read.
+        XCTAssertEqual(BodyMeasurement.update(weight: "62 lb", current: ""), "62 lb")
+    }
+
     @MainActor
     func testImportedDateSurvivesABackup() throws {
         let source = ModelContext(ModelStore.makeContainer(inMemory: true))
