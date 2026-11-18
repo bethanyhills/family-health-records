@@ -70,7 +70,8 @@ final class ScanFlowTests: XCTestCase {
 
     func testMeasurementsAreWrittenLikeTheProfileAndOnlyWhenNew() {
         // Kept in the profile's units.
-        XCTAssertEqual(BodyMeasurement.update(weight: "28.1 kg", current: "58 lb"), "62 lb")
+        // 28.1 kg is 61.95 lb, kept to one decimal like the weight field.
+        XCTAssertEqual(BodyMeasurement.update(weight: "28.1 kg", current: "58 lb"), "61.9 lb")
         XCTAssertEqual(BodyMeasurement.update(height: "4 ft 2 in", current: "120 cm"), "127 cm")
         // Nothing to offer when it's the same, or when nothing was read.
         XCTAssertEqual(BodyMeasurement.update(height: "4 ft 2 in", current: "4 ft 2 in"), "")
