@@ -181,6 +181,7 @@ struct DocumentDetailView: View {
             case .vaccines: VaccineImportView(person: person, document: document)
             case .prescription: PrescriptionImportView(person: person, document: document)
             case .visitSummary: VisitSummaryImportView(person: person, document: document)
+            case .schoolPlan: SchoolPlanImportView(person: person, document: document)
             }
         }
         .navigationTitle(document.displayTitle)
@@ -413,7 +414,7 @@ struct DocumentEditView: View {
 
 /// Saving what a document says into the right part of the app, after the person checks it.
 enum DocumentImport: String, Identifiable {
-    case vaccines, prescription, visitSummary
+    case vaccines, prescription, visitSummary, schoolPlan
 
     var id: String { rawValue }
 
@@ -422,6 +423,7 @@ enum DocumentImport: String, Identifiable {
         case .vaccines: "Add these vaccines to Immunizations"
         case .prescription: "Add this medication"
         case .visitSummary: "Add a visit note from this summary"
+        case .schoolPlan: "Add this plan to school details"
         }
     }
 
@@ -430,6 +432,7 @@ enum DocumentImport: String, Identifiable {
         case .vaccines: "syringe"
         case .prescription: "pills"
         case .visitSummary: "note.text.badge.plus"
+        case .schoolPlan: "graduationcap"
         }
     }
 
@@ -439,10 +442,12 @@ enum DocumentImport: String, Identifiable {
         case .vaccineRecord: return .vaccines
         case .prescription: return .prescription
         case .visitSummary: return .visitSummary
+        case .plan504, .iep: return .schoolPlan
         default: break
         }
         let text = document.recognizedText
         if VaccineRecordParser.looksLikeVaccineRecord(text) { return .vaccines }
+        if SchoolPlanParser.looksLikeSchoolPlan(text) { return .schoolPlan }
         // A visit summary often lists medications too, so it's checked before prescriptions.
         if VisitSummaryParser.looksLikeVisitSummary(text) { return .visitSummary }
         if PrescriptionParser.looksLikePrescription(text) { return .prescription }
