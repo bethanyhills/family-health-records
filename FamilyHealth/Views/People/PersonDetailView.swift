@@ -94,6 +94,7 @@ struct PersonDetailView: View {
 
             Section("Basics") {
                 InfoRow("Date of birth", person.dateOfBirth?.formDate ?? "")
+                SocialSecurityRow(digits: person.socialSecurityNumber)
                 InfoRow("Sex", person.sex == .unspecified ? "" : person.sex.label)
                 InfoRow("Blood type", person.bloodType == .unknown ? "" : person.bloodType.label)
                 InfoRow("Height", person.height)
@@ -156,7 +157,7 @@ struct PersonDetailView: View {
 
     private var hasNoBasics: Bool {
         person.dateOfBirth == nil && person.sex == .unspecified && person.bloodType == .unknown
-            && person.height.isBlank && person.weight.isBlank
+            && person.height.isBlank && person.weight.isBlank && person.socialSecurityNumber.isEmpty
     }
 }
 

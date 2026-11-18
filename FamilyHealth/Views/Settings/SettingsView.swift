@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var backup = BackupFlow()
     @Environment(Purchases.self) private var purchases
     @State private var isShowingUnlock = false
+    @AppStorage(FamilyTitle.key) private var familyTitle = ""
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -17,6 +18,16 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    TextField(FamilyTitle.standard, text: $familyTitle)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("Family name")
+                } footer: {
+                    Text("The title of your family list, like \"Hills Family\". Leave it empty for \"My Family\".")
+                }
+
                 Section {
                     Toggle("Require \(AppLock.biometryName)", isOn: $requireAuthentication)
                 } header: {

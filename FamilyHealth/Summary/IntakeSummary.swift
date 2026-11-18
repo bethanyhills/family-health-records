@@ -5,10 +5,13 @@ struct SummaryItem: Identifiable, Equatable {
     var id = ""
     let label: String
     let value: String
+    /// What tapping the row copies, when it differs from what's shown (a masked number).
+    var copyValue: String?
 
-    init(label: String, value: String) {
+    init(label: String, value: String, copyValue: String? = nil) {
         self.label = label
         self.value = value
+        self.copyValue = copyValue
     }
 }
 
@@ -93,6 +96,12 @@ enum IntakeSummary {
         if person.bloodType != .unknown { items.append(SummaryItem(label: "Blood type", value: person.bloodType.label)) }
         add(&items, "Height", person.height)
         add(&items, "Weight", person.weight)
+        // Masked on screen, in Copy all and in the PDF; tapping the row copies the whole number.
+        let ssn = person.socialSecurityNumber
+        if !ssn.isEmpty {
+            items.append(SummaryItem(label: "Social Security number", value: SocialSecurityNumber.masked(ssn),
+                                     copyValue: SocialSecurityNumber.formatted(ssn)))
+        }
         return SummarySection(title: "Patient", items: items)
     }
 
