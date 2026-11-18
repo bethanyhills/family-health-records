@@ -12,11 +12,12 @@ struct AvatarView: View {
                     .resizable()
                     .scaledToFill()
             } else {
+                let colors = Theme.avatarColors(for: initials)
                 ZStack {
-                    Circle().fill(Color.accentColor.opacity(0.18))
+                    Circle().fill(colors.fill)
                     Text(initials.isEmpty ? "?" : initials)
                         .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(colors.text)
                 }
             }
         }

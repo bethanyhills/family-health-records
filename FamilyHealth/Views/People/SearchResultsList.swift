@@ -24,6 +24,7 @@ struct SearchResultsList: View {
                 }
             }
         }
+        .brandedBackground()
         .overlay {
             if hits.isEmpty {
                 ContentUnavailableView.search

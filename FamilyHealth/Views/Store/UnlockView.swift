@@ -10,9 +10,7 @@ struct UnlockView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    Image(systemName: "heart.text.square.fill")
-                        .font(.system(size: 64))
-                        .foregroundStyle(.tint)
+                    BrandMark(size: 72)
                         .padding(.top, 24)
 
                     VStack(spacing: 6) {
@@ -30,7 +28,7 @@ struct UnlockView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
 
                     if purchases.status == .unlocked {
                         Label("Unlocked. Thank you!", systemImage: "checkmark.seal.fill")
@@ -65,6 +63,7 @@ struct UnlockView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .background(Theme.background.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(purchases.status == .unlocked ? "Done" : "Not now") { dismiss() }

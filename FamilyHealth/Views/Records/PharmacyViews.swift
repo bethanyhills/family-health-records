@@ -171,6 +171,7 @@ struct PharmacySearchView: View {
                 }
             }
         }
+        .brandedBackground()
         .overlay {
             if query.isBlank {
                 ContentUnavailableView(

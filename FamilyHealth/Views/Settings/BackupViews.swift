@@ -274,6 +274,7 @@ struct BackupPasswordView: View {
                     .foregroundStyle(.red)
             }
         }
+        .brandedBackground()
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

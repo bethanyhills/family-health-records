@@ -27,6 +27,8 @@ struct PeopleListView: View {
                     list
                 }
             }
+            .background(Theme.background.ignoresSafeArea())
+            .brandedHeader()
             .searchable(text: $searchText, prompt: "Search all records")
             .navigationTitle(FamilyTitle.display(familyTitle))
             .navigationDestination(for: Person.self) { person in
@@ -105,7 +107,7 @@ struct PeopleListView: View {
                             }
                         } icon: {
                             Image(systemName: "externaldrive.fill.badge.exclamationmark")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Theme.amber)
                         }
                     }
                     .buttonStyle(.plain)
@@ -136,6 +138,7 @@ struct PeopleListView: View {
                     .padding(.top, 24)
             }
         }
+        .brandedBackground()
     }
 
     private var emptyState: some View {

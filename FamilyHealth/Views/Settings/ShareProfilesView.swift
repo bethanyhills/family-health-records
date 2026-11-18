@@ -47,6 +47,7 @@ struct ShareProfilesView: View {
                 }
             }
         }
+        .brandedBackground()
         .navigationTitle("Share family members")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
