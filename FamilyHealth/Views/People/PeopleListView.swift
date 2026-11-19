@@ -66,6 +66,10 @@ struct PeopleListView: View {
             }) {
                 UnlockView()
             }
+            .successBanner(Binding(
+                get: { purchases.successMessage },
+                set: { purchases.successMessage = $0 }
+            ))
             .confirmationDialog(
                 "Delete \(personToDelete?.displayName ?? "")?",
                 isPresented: Binding(

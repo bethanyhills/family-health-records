@@ -81,4 +81,13 @@ final class PlanTests: XCTestCase {
         XCTAssertTrue(noTrial.hasPrefix("$9.99 a year, billed to your Apple Account."))
         XCTAssertTrue(noTrial.contains("before the year ends"))
     }
+
+    @MainActor
+    func testThankYouAfterBuying() {
+        let soon = Date.now.addingTimeInterval(14 * 86_400)
+        XCTAssertEqual(Purchases.thankYou(for: .subscribed(until: soon, inFreeTrial: true)), "Your free trial has started. Enjoy!")
+        XCTAssertEqual(Purchases.thankYou(for: .subscribed(until: soon, inFreeTrial: false)), "Thank you! Your annual plan is active.")
+        XCTAssertEqual(Purchases.thankYou(for: .lifetime), "Thank you! You have lifetime access.")
+        XCTAssertNil(Purchases.thankYou(for: .noPlan))
+    }
 }
