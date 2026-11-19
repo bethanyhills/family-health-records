@@ -9,9 +9,9 @@ enum PlanLinks {
     static let manageSubscriptions = URL(string: "https://apps.apple.com/account/subscriptions")!
 }
 
-/// The plans screen: annual (with Apple's free trial) or lifetime.
-/// It opens by itself once, after the first family member is added, and
-/// otherwise only when someone taps a plans button.
+/// The plans screen: annual (starting with Apple's free trial) or lifetime.
+/// On a new install the Family screen's first button opens it, so the free
+/// trial starts on day one.
 struct UnlockView: View {
     @Environment(Purchases.self) private var purchases
     @Environment(\.dismiss) private var dismiss
@@ -48,27 +48,27 @@ struct UnlockView: View {
                         Label("You have lifetime access. Thank you!", systemImage: "checkmark.seal.fill")
                             .font(.headline)
                             .foregroundStyle(.green)
-                    case .subscribed(let until):
-                        subscribedNote(until: until)
+                    case .subscribed(let until, let inFreeTrial):
+                        subscribedNote(until: until, inFreeTrial: inFreeTrial)
                         planCard(.lifetime)
                         buyButton
-                    case .trial, .ended:
+                    case .noPlan:
                         planCard(.annual)
                         planCard(.lifetime)
                         buyButton
+                    }
+
+                    if selection == .annual, !purchases.status.hasPlan {
+                        Text(PlanPolicy.renewalTerms(yearlyPrice: purchases.annualPrice, freeTrial: purchases.freeTrialText))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
 
                     if purchases.status != .lifetime {
                         Button("Restore purchases") {
                             Task { await purchases.restore() }
                         }
-                    }
-
-                    if selection == .annual, !purchases.status.hasPlan {
-                        Text(TrialPolicy.renewalTerms(yearlyPrice: purchases.annualPrice, freeTrial: purchases.freeTrialText))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
                     }
 
                     Text("Your records stay on this iPhone and remain viewable and exportable whether or not you choose a plan.")
@@ -108,8 +108,7 @@ struct UnlockView: View {
         switch purchases.status {
         case .lifetime: "Family Health Binder"
         case .subscribed: "Your plan"
-        case .trial: "Choose a plan"
-        case .ended: "Your trial has ended"
+        case .noPlan: purchases.freeTrialText.map { "Try everything free for \($0)" } ?? "Choose a plan"
         }
     }
 
@@ -117,18 +116,29 @@ struct UnlockView: View {
         switch purchases.status {
         case .lifetime, .subscribed:
             "Everything is included, for everyone in your Family Sharing group."
-        case .trial(let daysLeft):
-            "\(TrialPolicy.daysLeftText(daysLeft)). Pick a plan now and keep going without a break."
-        case .ended:
-            "Pick a plan to keep adding and editing. Nothing has been deleted."
+        case .noPlan:
+            purchases.freeTrialText == nil
+                ? "Pick a plan to add and edit records. Anything you've already entered stays viewable and exportable."
+                : "Start the free trial now. Cancel before it ends and you won't be charged."
         }
     }
 
-    private func subscribedNote(until: Date) -> some View {
+    private func subscribedNote(until: Date, inFreeTrial: Bool) -> some View {
         VStack(spacing: 8) {
-            Label("Annual plan, active through \(until.formatted(date: .abbreviated, time: .omitted))", systemImage: "checkmark.seal.fill")
-                .font(.headline)
-                .foregroundStyle(.green)
+            Label(
+                inFreeTrial
+                    ? PlanPolicy.trialEndsText(until: until, now: purchases.now)
+                    : "Annual plan, renews \(until.formatted(date: .abbreviated, time: .omitted))",
+                systemImage: "checkmark.seal.fill"
+            )
+            .font(.headline)
+            .foregroundStyle(.green)
+            .multilineTextAlignment(.center)
+            if inFreeTrial {
+                Text(purchases.annualPrice.map { "Then \($0) a year, starting \(until.formatted(date: .abbreviated, time: .omitted))." } ?? "Then the annual price, starting \(until.formatted(date: .abbreviated, time: .omitted)).")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
             Link("Manage or cancel your subscription", destination: PlanLinks.manageSubscriptions)
                 .font(.subheadline)
             Text("Rather pay once? Switch to lifetime below, then cancel the annual plan.")
@@ -197,7 +207,7 @@ struct UnlockView: View {
     private var buyTitle: String {
         switch selection {
         case .annual:
-            if let trial = purchases.freeTrialText { return "Start \(trial) free" }
+            if purchases.freeTrialText != nil { return "Start free trial" }
             return purchases.annualPrice.map { "Subscribe for \($0) a year" } ?? "Subscribe"
         case .lifetime:
             return purchases.lifetimePrice.map { "Buy lifetime for \($0)" } ?? "Buy lifetime"
@@ -223,48 +233,50 @@ struct UnlockView: View {
     }
 }
 
-/// The quiet banner on the Family screen (last days of the trial, or after it)
-/// and at the top of a person's page once the trial has ended.
-struct TrialBanner: View {
-    let status: TrialStatus
-    let onUnlock: () -> Void
+/// The banner on the Family screen and at the top of a person's page:
+/// - no plan: records are view-only, with a button to the plans;
+/// - the last days of Apple's free trial: when the first charge comes, so
+///   it's never a surprise.
+struct PlanBanner: View {
+    let status: PlanStatus
+    let onShowPlans: () -> Void
     @Environment(Purchases.self) private var purchases
 
     var body: some View {
         switch status {
-        case .lifetime, .subscribed:
+        case .lifetime:
             EmptyView()
-        case .trial(let daysLeft):
-            Button(action: onUnlock) {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(TrialPolicy.daysLeftText(daysLeft))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Text("Everything works during the trial.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(purchases.plansFromText)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.tint)
+        case .subscribed(let until, let inFreeTrial):
+            if inFreeTrial {
+                Button(action: onShowPlans) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(PlanPolicy.trialEndsText(until: until, now: purchases.now))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text(purchases.annualPrice.map { "Your annual plan (\($0) a year) starts \(until.formatted(date: .abbreviated, time: .omitted)). Cancel anytime before then and you won't be charged." }
+                                 ?? "Your annual plan starts \(until.formatted(date: .abbreviated, time: .omitted)). Cancel anytime before then and you won't be charged.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(.purple)
                     }
-                } icon: {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(.purple)
                 }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-        case .ended:
+        case .noPlan:
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Your trial has ended")
+                    Text("View only")
                         .font(.subheadline.weight(.semibold))
                     Text("Records stay viewable and exportable. Choose a plan to add or edit.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
-                Button("See plans", action: onUnlock)
+                Button("See plans", action: onShowPlans)
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)
             }
@@ -272,9 +284,9 @@ struct TrialBanner: View {
     }
 }
 
-/// Settings: where the trial or plan stands, with plans, manage and restore.
-/// The plans sheet is attached to the settings page, because a sheet
-/// attached to a list section closes itself.
+/// Settings: the current plan, with plans, manage and restore. The plans
+/// sheet is attached to the settings page, because a sheet attached to a
+/// list section closes itself.
 struct PurchaseSection: View {
     let onUnlock: () -> Void
     @Environment(Purchases.self) private var purchases
@@ -284,16 +296,18 @@ struct PurchaseSection: View {
             switch purchases.status {
             case .lifetime:
                 Label("Lifetime access. Thank you!", systemImage: "checkmark.seal.fill")
-            case .subscribed(let until):
-                Label("Annual plan, active through \(until.formatted(date: .abbreviated, time: .omitted))", systemImage: "checkmark.seal.fill")
+            case .subscribed(let until, let inFreeTrial):
+                Label(
+                    inFreeTrial
+                        ? PlanPolicy.trialEndsText(until: until, now: purchases.now)
+                        : "Annual plan, renews \(until.formatted(date: .abbreviated, time: .omitted))",
+                    systemImage: "checkmark.seal.fill"
+                )
                 Link("Manage or cancel subscription", destination: PlanLinks.manageSubscriptions)
                 Button("Switch to lifetime", action: onUnlock)
-            case .trial(let daysLeft):
-                Label(TrialPolicy.daysLeftText(daysLeft), systemImage: "star")
-                Button("See plans", action: onUnlock)
-            case .ended:
-                Label("Trial ended. Records stay viewable.", systemImage: "lock")
-                Button("See plans", action: onUnlock)
+            case .noPlan:
+                Label("No plan. Records stay viewable.", systemImage: "lock")
+                Button(purchases.startTitle, action: onUnlock)
             }
             if purchases.status != .lifetime {
                 Button("Restore purchases") {
@@ -310,7 +324,7 @@ struct PurchaseSection: View {
     private var footer: String {
         let annual = purchases.annualPrice.map { "\($0) a year" } ?? "a yearly plan"
         let lifetime = purchases.lifetimePrice.map { "\($0) once" } ?? "a one-time lifetime price"
-        return "Free for \(TrialPolicy.length) days with everything included, then \(annual) or \(lifetime). Both cover your Family Sharing group, and records always stay viewable and exportable."
+        return "\(annual.prefix(1).uppercased())\(annual.dropFirst()) after a free trial, or \(lifetime). Both cover your Family Sharing group, and records always stay viewable and exportable."
     }
 }
 

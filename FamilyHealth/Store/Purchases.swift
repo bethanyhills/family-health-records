@@ -2,11 +2,12 @@ import Observation
 import StoreKit
 import SwiftUI
 
-/// The 14-day trial and the two plans, through StoreKit 2:
-/// - Annual: $9.99 a year, auto-renewing, with a 14-day free trial (Apple's
-///   introductory offer) for people who haven't had one.
+/// The two plans, through StoreKit 2:
+/// - Annual: $9.99 a year, auto-renewing, starting with a 14-day free trial
+///   (Apple's introductory offer) for people who haven't had one.
 /// - Lifetime: $19.99 once.
-/// Both are shared with the buyer's Family Sharing group.
+/// Both are shared with the buyer's Family Sharing group. Without a plan,
+/// records stay viewable and exportable (see `PlanPolicy`).
 ///
 /// Nothing here talks to a server of ours. StoreKit checks purchases with
 /// Apple on the device, and the app never sees who bought them.
@@ -21,7 +22,7 @@ final class Purchases {
 
     private static let lifetimeKey = "isUnlocked"
     private static let subscribedUntilKey = "subscribedUntil"
-    private static let offeredPlansKey = "didOfferPlans"
+    private static let inFreeTrialKey = "inFreeTrial"
 
     private(set) var annual: Product?
     private(set) var lifetime: Product?
@@ -29,39 +30,31 @@ final class Purchases {
     private(set) var isEligibleForFreeTrial = true
     private(set) var ownsLifetime: Bool
     private(set) var subscribedUntil: Date?
+    private(set) var inFreeTrial = false
     private(set) var isPurchasing = false
     private(set) var didFailToLoad = false
-    private(set) var trialStart: Date
     var message: String?
-    /// Refreshed whenever the app comes forward, so the trial counts down.
+    /// Refreshed whenever the app comes forward, so an ended plan is noticed.
     var now = Date.now
 
     private var updates: Task<Void, Never>?
 
     init() {
-        trialStart = TrialClock.start()
-        #if DEBUG
-        // For trying the trial in Xcode: add the launch argument
-        // `-trialDaysUsed 15` to the scheme to see the trial as ended.
-        if UserDefaults.standard.object(forKey: "trialDaysUsed") != nil {
-            let used = UserDefaults.standard.integer(forKey: "trialDaysUsed")
-            trialStart = Date.now.addingTimeInterval(-TimeInterval(used) * 86_400)
-        }
-        #endif
         // The last known answers, so a locked screen doesn't flash at launch;
         // `refresh()` checks them against StoreKit right away.
         let defaults = UserDefaults.standard
         ownsLifetime = defaults.bool(forKey: Self.lifetimeKey)
         let until = defaults.double(forKey: Self.subscribedUntilKey)
         subscribedUntil = until > 0 ? Date(timeIntervalSince1970: until) : nil
+        inFreeTrial = defaults.bool(forKey: Self.inFreeTrialKey)
     }
 
-    var status: TrialStatus {
-        TrialPolicy.status(
-            trialStart: trialStart,
+    var status: PlanStatus {
+        PlanPolicy.status(
             now: now,
             ownsLifetime: ownsLifetime,
-            subscribedUntil: subscribedUntil
+            subscribedUntil: subscribedUntil,
+            inFreeTrial: inFreeTrial
         )
     }
 
@@ -77,30 +70,20 @@ final class Purchases {
         guard isEligibleForFreeTrial,
               let offer = annual?.subscription?.introductoryOffer,
               offer.paymentMode == .freeTrial else { return nil }
-        let unit: TrialPolicy.TrialUnit = switch offer.period.unit {
+        let unit: PlanPolicy.TrialUnit = switch offer.period.unit {
         case .day: .day
         case .week: .week
         case .month: .month
         case .year: .year
         @unknown default: .day
         }
-        return TrialPolicy.trialLengthText(value: offer.period.value * max(offer.periodCount, 1), unit: unit)
+        return PlanPolicy.trialLengthText(value: offer.period.value * max(offer.periodCount, 1), unit: unit)
     }
 
-    /// "Plans from $9.99 a year" for banners, without a price if the App
-    /// Store hasn't answered yet.
-    var plansFromText: String {
-        annualPrice.map { "Plans from \($0) a year" } ?? "See plans"
-    }
-
-    /// Whether the plans screen should open by itself now (see `TrialPolicy`).
-    func shouldOfferPlans(peopleCount: Int) -> Bool {
-        let offered = UserDefaults.standard.bool(forKey: Self.offeredPlansKey)
-        guard TrialPolicy.offersPlansAfterAddingPerson(status, peopleCount: peopleCount, alreadyOffered: offered) else {
-            return false
-        }
-        UserDefaults.standard.set(true, forKey: Self.offeredPlansKey)
-        return true
+    /// "Start your free trial", or "Choose a plan" for someone who already
+    /// had one.
+    var startTitle: String {
+        freeTrialText == nil ? "Choose a plan" : "Start your free trial"
     }
 
     func start() async {
@@ -136,6 +119,7 @@ final class Purchases {
     func refresh() async {
         var lifetimeOwned = false
         var until: Date?
+        var freeTrial = false
         for await entitlement in StoreKit.Transaction.currentEntitlements {
             guard case .verified(let transaction) = entitlement,
                   transaction.revocationDate == nil else { continue }
@@ -143,14 +127,15 @@ final class Purchases {
             case Self.lifetimeProductID:
                 lifetimeOwned = true
             case Self.annualProductID:
-                if let expires = transaction.expirationDate {
-                    until = max(until ?? expires, expires)
+                if let expires = transaction.expirationDate, expires >= (until ?? expires) {
+                    until = expires
+                    freeTrial = Self.isFreeTrial(transaction)
                 }
             default:
                 break
             }
         }
-        setOwnership(lifetime: lifetimeOwned, subscribedUntil: until)
+        setOwnership(lifetime: lifetimeOwned, subscribedUntil: until, inFreeTrial: freeTrial)
         now = .now
     }
 
@@ -215,11 +200,22 @@ final class Purchases {
         await transaction.finish()
     }
 
-    private func setOwnership(lifetime: Bool, subscribedUntil until: Date?) {
+    /// The subscription period that's Apple's free trial, not a paid year.
+    private static func isFreeTrial(_ transaction: StoreKit.Transaction) -> Bool {
+        if #available(iOS 17.2, *) {
+            return transaction.offer?.type == .introductory && transaction.offer?.paymentMode == .freeTrial
+        } else {
+            return transaction.offerType == .introductory
+        }
+    }
+
+    private func setOwnership(lifetime: Bool, subscribedUntil until: Date?, inFreeTrial freeTrial: Bool) {
         ownsLifetime = lifetime
         subscribedUntil = until
+        inFreeTrial = freeTrial
         let defaults = UserDefaults.standard
         defaults.set(lifetime, forKey: Self.lifetimeKey)
         defaults.set(until?.timeIntervalSince1970 ?? 0, forKey: Self.subscribedUntilKey)
+        defaults.set(freeTrial, forKey: Self.inFreeTrialKey)
     }
 }
