@@ -234,13 +234,15 @@ struct UnlockView: View {
 }
 
 /// The banner on the Family screen and at the top of a person's page:
-/// - no plan: records are view-only, with a button to the plans;
+/// - no plan, one free family member: more people need a plan;
+/// - no plan, more people than that: records are view-only;
 /// - the last days of Apple's free trial: when the first charge comes, so
 ///   it's never a surprise.
 struct PlanBanner: View {
     let status: PlanStatus
     let onShowPlans: () -> Void
     @Environment(Purchases.self) private var purchases
+    @Environment(\.recordAccess) private var access
 
     var body: some View {
         switch status {
@@ -269,9 +271,11 @@ struct PlanBanner: View {
         case .noPlan:
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("View only")
+                    Text(access.canEdit ? "Your first family member is free" : "View only")
                         .font(.subheadline.weight(.semibold))
-                    Text("Records stay viewable and exportable. Choose a plan to add or edit.")
+                    Text(access.canEdit
+                         ? "Choose a plan to add the rest of your family."
+                         : "Records stay viewable and exportable. Choose a plan to add or edit.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -290,6 +294,7 @@ struct PlanBanner: View {
 struct PurchaseSection: View {
     let onUnlock: () -> Void
     @Environment(Purchases.self) private var purchases
+    @Environment(\.recordAccess) private var access
 
     var body: some View {
         Section {
@@ -306,7 +311,11 @@ struct PurchaseSection: View {
                 Link("Manage or cancel subscription", destination: PlanLinks.manageSubscriptions)
                 Button("Switch to lifetime", action: onUnlock)
             case .noPlan:
-                Label("No plan. Records stay viewable.", systemImage: "lock")
+                if access.canEdit {
+                    Label("Free: one family member", systemImage: "person.fill")
+                } else {
+                    Label("No plan. Records stay viewable.", systemImage: "lock")
+                }
                 Button(purchases.startTitle, action: onUnlock)
             }
             if purchases.status != .lifetime {

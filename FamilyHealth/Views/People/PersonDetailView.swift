@@ -16,7 +16,7 @@ struct PersonDetailView: View {
 
     var body: some View {
         List {
-            if purchases.status == .noPlan {
+            if !access.canEdit {
                 Section {
                     PlanBanner(status: .noPlan) { isShowingUnlock = true }
                 }

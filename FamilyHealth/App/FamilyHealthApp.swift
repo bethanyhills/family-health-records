@@ -37,11 +37,12 @@ struct RootView: View {
     @Environment(Purchases.self) private var purchases
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Welcome.seenKey) private var hasSeenWelcome = false
+    @Query private var people: [Person]
 
     var body: some View {
         ZStack {
             PeopleListView()
-                .environment(\.recordAccess, purchases.access)
+                .environment(\.recordAccess, purchases.access(peopleCount: people.count))
                 // VoiceOver can otherwise read records hidden behind the lock screen.
                 .accessibilityHidden(appLock.isLocked || !hasSeenWelcome)
 

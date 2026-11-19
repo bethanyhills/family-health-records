@@ -60,7 +60,9 @@ final class Purchases {
         )
     }
 
-    var access: RecordAccess { RecordAccess(canEdit: status.canEdit) }
+    func access(peopleCount: Int) -> RecordAccess {
+        PlanPolicy.access(status, peopleCount: peopleCount)
+    }
 
     /// "$9.99" and "$19.99" from the App Store, in the person's own currency.
     var annualPrice: String? { annual?.displayPrice }

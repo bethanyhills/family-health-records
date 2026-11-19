@@ -148,9 +148,9 @@ struct BackupSection: View {
             } label: {
                 Label("Import shared family members", systemImage: "square.and.arrow.down")
             }
-            // Adding people needs a plan (or its free trial). Restoring your own
-            // backup always works, so records are never stuck on an old phone.
-            .disabled(!access.canEdit)
+            // Importing people needs a plan (or its free trial). Restoring your
+            // own backup always works, so records are never stuck on an old phone.
+            .disabled(!access.canImportPeople)
         } header: {
             Text("Backup")
         } footer: {

@@ -90,4 +90,32 @@ final class PlanTests: XCTestCase {
         XCTAssertEqual(Purchases.thankYou(for: .lifetime), "Thank you! You have lifetime access.")
         XCTAssertNil(Purchases.thankYou(for: .noPlan))
     }
+
+    func testFirstFamilyMemberIsFreeWithoutAPlan() {
+        let empty = PlanPolicy.access(.noPlan, peopleCount: 0)
+        XCTAssertTrue(empty.canAddPerson)
+        XCTAssertTrue(empty.canEdit)
+        XCTAssertFalse(empty.canImportPeople)
+
+        let one = PlanPolicy.access(.noPlan, peopleCount: 1)
+        XCTAssertTrue(one.canEdit, "The free family member's records can be filled in")
+        XCTAssertFalse(one.canAddPerson, "A second family member needs a plan")
+        XCTAssertFalse(one.canImportPeople)
+    }
+
+    func testMorePeopleThanFreeIsViewOnlyWithoutAPlan() {
+        // A plan that ended, with the whole family already added.
+        let family = PlanPolicy.access(.noPlan, peopleCount: 4)
+        XCTAssertFalse(family.canEdit)
+        XCTAssertFalse(family.canAddPerson)
+        XCTAssertFalse(family.canImportPeople)
+    }
+
+    func testAPlanUnlocksEverything() {
+        let trial = PlanStatus.subscribed(until: day(14), inFreeTrial: true)
+        for status in [PlanStatus.lifetime, trial] {
+            XCTAssertEqual(PlanPolicy.access(status, peopleCount: 0), .unlocked)
+            XCTAssertEqual(PlanPolicy.access(status, peopleCount: 6), .unlocked)
+        }
+    }
 }
