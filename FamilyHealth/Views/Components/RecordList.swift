@@ -86,7 +86,7 @@ struct RecordList<Item: PersistentModel, Row: View, Editor: View>: View {
                 } actions: {
                     if access.canEdit {
                         Button("Add") { isAdding = true }
-                            .buttonStyle(.borderedProminent)
+                            .primaryButton()
                         if let scan {
                             Button {
                                 startScan()

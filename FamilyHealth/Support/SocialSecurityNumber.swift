@@ -45,6 +45,7 @@ struct SocialSecurityRow: View {
                         Image(systemName: isShown ? "eye.slash" : "eye")
                     }
                     .buttonStyle(.borderless)
+                    .minimumTapTarget()
                     .accessibilityLabel(isShown ? "Hide number" : "Show number")
                 }
             }
@@ -88,6 +89,7 @@ struct SocialSecurityField: View {
                 Image(systemName: isShown ? "eye.slash" : "eye")
             }
             .buttonStyle(.borderless)
+            .minimumTapTarget()
             .accessibilityLabel(isShown ? "Hide number" : "Show number")
         }
     }

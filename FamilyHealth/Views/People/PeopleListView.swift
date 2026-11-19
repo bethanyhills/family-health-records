@@ -28,7 +28,6 @@ struct PeopleListView: View {
                 }
             }
             .background(Theme.background.ignoresSafeArea())
-            .brandedHeader()
             .searchable(text: $searchText, prompt: "Search all records")
             .navigationTitle(FamilyTitle.display(familyTitle))
             .navigationDestination(for: Person.self) { person in
@@ -160,12 +159,12 @@ struct PeopleListView: View {
                 Button("Add a family member") {
                     isAddingPerson = true
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryButton()
             } else {
                 Button(purchases.startTitle) {
                     isShowingUnlock = true
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryButton()
             }
         }
     }
@@ -184,9 +183,11 @@ struct PersonRow: View {
                     Text("Age \(age) · Born \(dob.shortDate)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .accessibilityLabel("Age \(age), born \(dob.formatted(date: .long, time: .omitted))")
                 }
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }

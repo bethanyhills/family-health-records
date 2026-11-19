@@ -47,7 +47,7 @@ struct UnlockView: View {
                     case .lifetime:
                         Label("You have lifetime access. Thank you!", systemImage: "checkmark.seal.fill")
                             .font(.headline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Theme.success)
                     case .subscribed(let until, let inFreeTrial):
                         subscribedNote(until: until, inFreeTrial: inFreeTrial)
                         planCard(.lifetime)
@@ -132,7 +132,7 @@ struct UnlockView: View {
                 systemImage: "checkmark.seal.fill"
             )
             .font(.headline)
-            .foregroundStyle(.green)
+            .foregroundStyle(Theme.success)
             .multilineTextAlignment(.center)
             if inFreeTrial {
                 Text(purchases.annualPrice.map { "Then \($0) a year, starting \(until.formatted(date: .abbreviated, time: .omitted))." } ?? "Then the annual price, starting \(until.formatted(date: .abbreviated, time: .omitted)).")
@@ -228,7 +228,7 @@ struct UnlockView: View {
             .font(.headline)
             .frame(maxWidth: .infinity, minHeight: 32)
         }
-        .buttonStyle(.borderedProminent)
+        .primaryButton()
         .disabled(purchases.isPurchasing)
     }
 }
@@ -277,7 +277,7 @@ struct PlanBanner: View {
                 }
                 Spacer(minLength: 0)
                 Button("See plans", action: onShowPlans)
-                    .buttonStyle(.borderedProminent)
+                    .primaryButton()
                     .buttonBorderShape(.capsule)
             }
         }

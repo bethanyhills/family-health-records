@@ -145,11 +145,12 @@ struct PersonDetailView: View {
 
     private var header: some View {
         Section {
-            HStack(spacing: 16) {
+            AdaptiveStack(spacing: 16) {
                 AvatarView(photoData: person.photoData, initials: person.initials, size: 72)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(person.displayName)
                         .font(.title2.bold())
+                        .accessibilityAddTraits(.isHeader)
                     if !person.preferredName.isBlank {
                         Text("Goes by \(person.preferredName)")
                             .foregroundStyle(.secondary)
@@ -178,6 +179,9 @@ struct RecordLink<Destination: View>: View {
     let count: Int
     @ViewBuilder let destination: () -> Destination
 
+    /// The colored square grows with the text size.
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 30
+
     init(
         _ title: String,
         systemImage: String,
@@ -200,8 +204,9 @@ struct RecordLink<Destination: View>: View {
                 Image(systemName: systemImage)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 30, height: 30)
-                    .background(color.gradient, in: RoundedRectangle(cornerRadius: 7))
+                    .frame(width: iconSize, height: iconSize)
+                    .background(color.gradient, in: RoundedRectangle(cornerRadius: iconSize * 0.23))
+                    .accessibilityHidden(true)
                 Text(title)
                 Spacer()
                 if count > 0 {
@@ -209,6 +214,9 @@ struct RecordLink<Destination: View>: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(count > 0 ? "\(count)" : "None yet")
         }
     }
 }
