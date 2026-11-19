@@ -28,7 +28,6 @@ struct PeopleListView: View {
                 }
             }
             .background(Theme.background.ignoresSafeArea())
-            .brandedHeader()
             .searchable(text: $searchText, prompt: "Search all records")
             .navigationTitle(FamilyTitle.display(familyTitle))
             .navigationDestination(for: Person.self) { person in

@@ -13,8 +13,6 @@ enum Theme {
     static let background = Color(light: 0xF3F5F9, dark: 0x0D131C)
     /// Card background on screens that are not lists.
     static let card = Color(light: 0xFFFFFF, dark: 0x172131)
-    /// Header band on the Family screen.
-    static let headerBand = Color(light: 0x1F3A5F, dark: 0x16263B)
 
     /// Soft avatar colors, so family members are easy to tell apart.
     /// Each pair is (circle fill, initials color).
@@ -72,12 +70,5 @@ extension View {
     func brandedBackground() -> some View {
         scrollContentBackground(.hidden)
             .background(Theme.background.ignoresSafeArea())
-    }
-
-    /// Navy header band behind the title and search field.
-    func brandedHeader() -> some View {
-        toolbarBackground(Theme.headerBand, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
     }
 }
