@@ -59,7 +59,11 @@ struct PeopleListView: View {
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView()
             }
-            .sheet(isPresented: $isShowingUnlock) {
+            .sheet(isPresented: $isShowingUnlock, onDismiss: {
+                // Just started the free trial on a new install: go straight
+                // on to adding the first person.
+                if people.isEmpty, purchases.status.canEdit { isAddingPerson = true }
+            }) {
                 UnlockView()
             }
             .confirmationDialog(
@@ -85,9 +89,9 @@ struct PeopleListView: View {
 
     private var list: some View {
         List {
-            if TrialPolicy.showsBanner(purchases.status) {
+            if PlanPolicy.showsBanner(purchases.status, now: purchases.now) {
                 Section {
-                    TrialBanner(status: purchases.status) { isShowingUnlock = true }
+                    PlanBanner(status: purchases.status) { isShowingUnlock = true }
                 }
             }
 
@@ -145,10 +149,20 @@ struct PeopleListView: View {
             Label("Add your family", systemImage: "person.2.fill")
         } description: {
             Text("Welcome to Family Health Binder. Start with one person. Their medications, allergies, doctors and insurance will all live on their page.")
+            if !access.canEdit {
+                // A new install: the free trial starts here, through Apple.
+                Text(purchases.freeTrialText.map { "Try everything free for \($0). Cancel before it ends and you won't be charged." }
+                     ?? "Choose a plan to start adding your family.")
+            }
         } actions: {
             if access.canEdit {
                 Button("Add a family member") {
                     isAddingPerson = true
+                }
+                .primaryButton()
+            } else {
+                Button(purchases.startTitle) {
+                    isShowingUnlock = true
                 }
                 .primaryButton()
             }

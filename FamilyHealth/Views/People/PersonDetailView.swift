@@ -16,9 +16,9 @@ struct PersonDetailView: View {
 
     var body: some View {
         List {
-            if purchases.status == .ended {
+            if purchases.status == .noPlan {
                 Section {
-                    TrialBanner(status: .ended) { isShowingUnlock = true }
+                    PlanBanner(status: .noPlan) { isShowingUnlock = true }
                 }
             }
 

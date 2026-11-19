@@ -2,10 +2,10 @@ import SwiftUI
 
 /// Single place that decides whether records can be added or edited.
 ///
-/// The app is a free download with a full-featured 14-day trial and one
-/// in-app purchase to unlock it for good (see `Purchases`). After the
-/// trial, records always stay viewable and exportable; only adding and
-/// editing need the purchase.
+/// The app is a free download. Adding and editing need a plan: $9.99 a
+/// year, starting with a 14-day free trial through Apple, or $19.99 once
+/// (see `Purchases`). Without one, records always stay viewable and
+/// exportable.
 struct RecordAccess: Equatable {
     var canEdit: Bool = true
 

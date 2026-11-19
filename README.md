@@ -34,7 +34,7 @@ Every push and pull request is built and tested by GitHub Actions on a macOS run
 1. **Foundation:** data model, Face ID lock, family list and profiles, emergency contacts, CI.
 2. **Health records:** medications, allergies, conditions, surgeries, immunizations, providers, insurance with card photos, family history.
 3. **Intake summary:** one-screen summary per person in intake-form order, PDF export, encrypted backup file.
-4. **Version 2:** documents and scans, visit notes, search, TestFlight, App Store (free 14-day trial, then a one-time unlock; records always stay viewable and exportable).
+4. **Version 2:** documents and scans, visit notes, search, TestFlight, App Store ($9.99 a year starting with a 14-day free trial through Apple, or $19.99 once for lifetime access; records always stay viewable and exportable).
 
 ## Privacy
 
