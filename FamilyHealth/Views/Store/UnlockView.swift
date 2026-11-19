@@ -166,7 +166,7 @@ struct UnlockView: View {
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
-                                .background(Theme.amber.opacity(0.2), in: Capsule())
+                                .background(Theme.navy.opacity(0.15), in: Capsule())
                         }
                     }
                     Text(planDetail(plan))
