@@ -12,8 +12,9 @@ final class AppLock {
     private(set) var message: String?
     private var isAuthenticating = false
 
-    init() {
-        isLocked = AppLock.isEnabled
+    /// `startsLocked` is false only on a brand-new install, while the welcome screen shows.
+    init(startsLocked: Bool = true) {
+        isLocked = startsLocked && AppLock.isEnabled
     }
 
     static var isEnabled: Bool {
@@ -78,8 +79,11 @@ struct LockView: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             Text("Family Health Binder is locked")
                 .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
             if let message = appLock.message {
                 Text(message)
                     .font(.callout)
@@ -92,7 +96,7 @@ struct LockView: View {
                 Label("Unlock with \(AppLock.biometryName)", systemImage: "faceid")
                     .frame(maxWidth: 280)
             }
-            .buttonStyle(.borderedProminent)
+            .primaryButton()
             .controlSize(.large)
             Spacer()
         }

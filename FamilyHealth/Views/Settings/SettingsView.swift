@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var backup = BackupFlow()
     @Environment(Purchases.self) private var purchases
     @State private var isShowingUnlock = false
+    @State private var isShowingWelcome = false
     @AppStorage(FamilyTitle.key) private var familyTitle = ""
 
     private var version: String {
@@ -52,6 +53,11 @@ struct SettingsView: View {
                     Text("Family Health Binder is a place to keep your own records. It doesn't give medical advice. Always check with your doctor or pharmacist before making medical decisions.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                    Button {
+                        isShowingWelcome = true
+                    } label: {
+                        Label("Show the welcome screen", systemImage: "hand.wave")
+                    }
                 } header: {
                     Text("About")
                 }
@@ -65,6 +71,9 @@ struct SettingsView: View {
             .backupPresentations(backup)
             .sheet(isPresented: $isShowingUnlock) {
                 UnlockView()
+            }
+            .fullScreenCover(isPresented: $isShowingWelcome) {
+                WelcomeView { isShowingWelcome = false }
             }
             .purchaseAlert(purchases, when: !isShowingUnlock)
             .navigationBarTitleDisplayMode(.inline)

@@ -43,7 +43,7 @@ struct ShareProfilesView: View {
                     Text("At least \(BackupCrypto.minimumPasswordLength) characters. They'll need it to open the file.")
                 }
                 if let error {
-                    Text(error).foregroundStyle(.red)
+                    Text(error).foregroundStyle(Theme.danger)
                 }
             }
         }

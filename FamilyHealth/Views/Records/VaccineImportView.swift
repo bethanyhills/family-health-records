@@ -98,7 +98,9 @@ struct VaccineImportView: View {
                     .foregroundStyle(candidate.wrappedValue.include ? Color.accentColor : Color.secondary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(candidate.wrappedValue.include ? "Will be added" : "Won't be added")
+            .minimumTapTarget()
+            .accessibilityLabel("Add the dose from \(candidate.wrappedValue.found.date.formDate)")
+            .accessibilityAddTraits(candidate.wrappedValue.include ? .isSelected : [])
 
             NavigationLink {
                 CandidateEditView(found: candidate.found)

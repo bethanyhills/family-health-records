@@ -33,7 +33,7 @@ struct UnlockView: View {
                     if purchases.status == .unlocked {
                         Label("Unlocked. Thank you!", systemImage: "checkmark.seal.fill")
                             .font(.headline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Theme.success)
                     } else {
                         Button {
                             Task { await purchases.purchase() }
@@ -48,7 +48,7 @@ struct UnlockView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity, minHeight: 32)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .primaryButton()
                         .disabled(purchases.isPurchasing)
 
                         Button("Restore purchase") {
@@ -120,7 +120,7 @@ struct TrialBanner: View {
                 }
                 Spacer(minLength: 0)
                 Button("Unlock", action: onUnlock)
-                    .buttonStyle(.borderedProminent)
+                    .primaryButton()
                     .buttonBorderShape(.capsule)
             }
         }

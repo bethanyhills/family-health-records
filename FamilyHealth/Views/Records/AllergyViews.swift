@@ -28,9 +28,10 @@ struct AllergiesView: View {
 extension AllergySeverity {
     var color: Color {
         switch self {
-        case .severe: .red
-        case .moderate: .orange
-        case .mild: .yellow
+        // Darker than the system red, orange and yellow, which are hard to read as small text.
+        case .severe: Theme.danger
+        case .moderate: Theme.warning
+        case .mild: Theme.caution
         case .unknown: .secondary
         }
     }

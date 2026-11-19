@@ -44,7 +44,7 @@ struct DocumentsView: View {
                 } actions: {
                     if access.canEdit {
                         Button("Add") { isAdding = true }
-                            .buttonStyle(.borderedProminent)
+                            .primaryButton()
                     }
                 }
             }
@@ -125,6 +125,7 @@ struct DocumentThumbnail: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .accessibilityHidden(true)
         .task(id: data?.count) {
             image = data.flatMap { DocumentPDF.thumbnail(of: $0) }
         }
@@ -204,7 +205,7 @@ struct DocumentDetailView: View {
                             Label(action.buttonTitle, systemImage: action.systemImage)
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .primaryButton()
                     }
                 }
                 .padding()
@@ -271,17 +272,16 @@ struct MisfiledNotice: View {
                 Text("This looks like **\(owner.displayName)**'s document, not \(filedUnder.shortName)'s.")
             } icon: {
                 Image(systemName: "person.crop.circle.badge.exclamationmark")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.warning)
             }
             .font(.subheadline)
-            HStack {
+            AdaptiveStack(spacing: 8) {
                 Button(moveTitle ?? "Move to \(owner.shortName)", action: onMove)
-                    .buttonStyle(.borderedProminent)
+                    .primaryButton()
                 Button("It's \(filedUnder.shortName)'s", action: onKeep)
                     .buttonStyle(.bordered)
             }
             .font(.subheadline)
-            .controlSize(.small)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
@@ -440,7 +440,7 @@ struct DocumentEditView: View {
                 Text("Pages")
             } footer: {
                 if let error {
-                    Text(error).foregroundStyle(.red)
+                    Text(error).foregroundStyle(Theme.danger)
                 } else {
                     Text("To keep a PDF from an email, open it, tap Share, then Save to Files, and choose it here. The text is read on this iPhone so you can search it later.")
                 }
