@@ -13,9 +13,9 @@ extension Theme {
     /// (the WCAG AA level for normal text) on white cards and on dark mode cells.
     enum Pairs {
         /// Same values as Theme.navy and the AccentColor asset.
-        static let accent = ColorPair(light: 0x1F3A5F, dark: 0x8DB4E8)
+        static let accent = ColorPair(light: 0x2B3F75, dark: 0x77A8F3)
         /// Words on a filled accent button: white on navy, dark navy on sky blue.
-        static let onAccent = ColorPair(light: 0xFFFFFF, dark: 0x0D1B2E)
+        static let onAccent = ColorPair(light: 0xFFFFFF, dark: 0x070A1F)
         static let danger = ColorPair(light: 0xB3261E, dark: 0xFF8A80)
         static let warning = ColorPair(light: 0x96500A, dark: 0xFFB259)
         static let caution = ColorPair(light: 0x735C00, dark: 0xF2D16B)
@@ -29,8 +29,8 @@ extension Theme {
 
     /// What these colors sit on: white cards and the tinted page in light mode;
     /// grouped cells, the page and cards in dark mode.
-    static let lightSurfaces: [UInt32] = [0xFFFFFF, 0xF3F5F9]
-    static let darkSurfaces: [UInt32] = [0x1C1C1E, 0x0D131C, 0x172131]
+    static let lightSurfaces: [UInt32] = [0xFFFFFF, 0xF4F6FB]
+    static let darkSurfaces: [UInt32] = [0x1C1C1E, 0x070A1F, 0x141933]
 
     /// Errors and severe allergies.
     static let danger = Pairs.danger.color

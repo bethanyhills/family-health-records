@@ -110,7 +110,7 @@ struct PeopleListView: View {
                             }
                         } icon: {
                             Image(systemName: "externaldrive.fill.badge.exclamationmark")
-                                .foregroundStyle(Theme.amber)
+                                .foregroundStyle(Theme.warning)
                         }
                     }
                     .buttonStyle(.plain)
