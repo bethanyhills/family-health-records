@@ -11,6 +11,8 @@ struct PeopleListView: View {
     @State private var isAddingPerson = false
     @State private var isShowingSettings = false
     @State private var isShowingUnlock = false
+    /// The plans were opened from "+", to add another family member.
+    @State private var wantsToAddPerson = false
     @State private var personToDelete: Person?
     @State private var searchText = ""
     @AppStorage(BackupStatus.lastBackupKey) private var lastBackupAt: Double = 0
@@ -44,7 +46,13 @@ struct PeopleListView: View {
                 if access.canEdit {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            isAddingPerson = true
+                            // The first family member is free; more need a plan.
+                            if access.canAddPerson {
+                                isAddingPerson = true
+                            } else {
+                                wantsToAddPerson = true
+                                isShowingUnlock = true
+                            }
                         } label: {
                             Label("Add family member", systemImage: "plus")
                         }
@@ -60,12 +68,17 @@ struct PeopleListView: View {
                 SettingsView()
             }
             .sheet(isPresented: $isShowingUnlock, onDismiss: {
-                // Just started the free trial on a new install: go straight
-                // on to adding the first person.
-                if people.isEmpty, purchases.status.canEdit { isAddingPerson = true }
+                // Just started a plan to add more people: go straight on to
+                // adding the next one.
+                if purchases.status.hasPlan, wantsToAddPerson { isAddingPerson = true }
+                wantsToAddPerson = false
             }) {
                 UnlockView()
             }
+            .successBanner(Binding(
+                get: { purchases.successMessage },
+                set: { purchases.successMessage = $0 }
+            ))
             .confirmationDialog(
                 "Delete \(personToDelete?.displayName ?? "")?",
                 isPresented: Binding(
@@ -149,23 +162,18 @@ struct PeopleListView: View {
             Label("Add your family", systemImage: "person.2.fill")
         } description: {
             Text("Welcome to Family Health Binder. Start with one person. Their medications, allergies, doctors and insurance will all live on their page.")
-            if !access.canEdit {
-                // A new install: the free trial starts here, through Apple.
-                Text(purchases.freeTrialText.map { "Try everything free for \($0). Cancel before it ends and you won't be charged." }
-                     ?? "Choose a plan to start adding your family.")
+            if !purchases.status.hasPlan {
+                // A new install: the first person is free, so people see what
+                // the app does before choosing a plan.
+                Text("Your first family member is free. Add more with a plan.")
             }
         } actions: {
-            if access.canEdit {
-                Button("Add a family member") {
-                    isAddingPerson = true
-                }
-                .primaryButton()
-            } else {
-                Button(purchases.startTitle) {
-                    isShowingUnlock = true
-                }
-                .primaryButton()
+            // With no one added yet, adding someone always works (see
+            // `PlanPolicy.access`).
+            Button("Add a family member") {
+                isAddingPerson = true
             }
+            .primaryButton()
         }
     }
 }

@@ -34,6 +34,8 @@ final class Purchases {
     private(set) var isPurchasing = false
     private(set) var didFailToLoad = false
     var message: String?
+    /// A short confirmation after a purchase goes through, shown as a banner.
+    var successMessage: String?
     /// Refreshed whenever the app comes forward, so an ended plan is noticed.
     var now = Date.now
 
@@ -58,7 +60,9 @@ final class Purchases {
         )
     }
 
-    var access: RecordAccess { RecordAccess(canEdit: status.canEdit) }
+    func access(peopleCount: Int) -> RecordAccess {
+        PlanPolicy.access(status, peopleCount: peopleCount)
+    }
 
     /// "$9.99" and "$19.99" from the App Store, in the person's own currency.
     var annualPrice: String? { annual?.displayPrice }
@@ -164,6 +168,7 @@ final class Purchases {
             switch try await product.purchase() {
             case .success(let verification):
                 await handle(verification)
+                successMessage = Self.thankYou(for: status)
             case .pending:
                 message = "Your purchase is waiting for approval. Your plan starts as soon as it's approved."
             case .userCancelled:
@@ -197,11 +202,34 @@ final class Purchases {
             // leaving the Family Sharing group all land here. Someone may own
             // a plan more than one way, so check everything.
             await refresh()
+            // Right after a purchase, StoreKit's list of current entitlements can
+            // lag behind the transaction it just handed us, which left the plans
+            // screen open with no plan. Count the new transaction directly.
+            if transaction.revocationDate == nil {
+                if transaction.productID == Self.lifetimeProductID, !ownsLifetime {
+                    setOwnership(lifetime: true, subscribedUntil: subscribedUntil, inFreeTrial: inFreeTrial)
+                } else if transaction.productID == Self.annualProductID,
+                          let expires = transaction.expirationDate, expires > .now,
+                          expires > (subscribedUntil ?? .distantPast) {
+                    setOwnership(lifetime: ownsLifetime, subscribedUntil: expires,
+                                 inFreeTrial: Self.isFreeTrial(transaction))
+                }
+            }
             if transaction.productID == Self.annualProductID {
                 isEligibleForFreeTrial = false
             }
         }
         await transaction.finish()
+    }
+
+    /// The banner after buying: what the person has now.
+    static func thankYou(for status: PlanStatus) -> String? {
+        switch status {
+        case .lifetime: "Thank you! You have lifetime access."
+        case .subscribed(_, let inFreeTrial):
+            inFreeTrial ? "Your free trial has started. Enjoy!" : "Thank you! Your annual plan is active."
+        case .noPlan: nil
+        }
     }
 
     /// The subscription period that's Apple's free trial, not a paid year.

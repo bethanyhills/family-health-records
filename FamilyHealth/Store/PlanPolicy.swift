@@ -7,8 +7,9 @@ enum PlanStatus: Equatable {
     /// The annual subscription. `inFreeTrial` is true during Apple's 14 free
     /// days, before the first $9.99 charge.
     case subscribed(until: Date, inFreeTrial: Bool)
-    /// Never subscribed, or the subscription ended. Records stay viewable
-    /// and exportable; adding and editing need a plan.
+    /// Never subscribed, or the subscription ended. The first family member
+    /// is free; beyond that, records stay viewable and exportable and adding
+    /// or editing needs a plan (see `PlanPolicy.access`).
     case noPlan
 
     var canEdit: Bool { self != .noPlan }
@@ -44,6 +45,22 @@ enum PlanPolicy {
     /// Whole days left before `date`, counting a part day as a day.
     static func daysLeft(until date: Date, now: Date) -> Int {
         max(0, Int((date.timeIntervalSince(now) / 86_400).rounded(.up)))
+    }
+
+    /// How many family members anyone can add and edit without a plan, so
+    /// they see what the app does before paying.
+    static let freePeople = 1
+
+    /// What can be added and edited. With a plan, everything. Without one,
+    /// the first family member is free; with more people than that (a plan
+    /// that ended), records stay viewable and exportable.
+    static func access(_ status: PlanStatus, peopleCount: Int) -> RecordAccess {
+        if status.hasPlan { return .unlocked }
+        return RecordAccess(
+            canEdit: peopleCount <= freePeople,
+            canAddPerson: peopleCount < freePeople,
+            canImportPeople: false
+        )
     }
 
     /// The Family screen shows a banner when there's no plan (records are
