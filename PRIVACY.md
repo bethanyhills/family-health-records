@@ -28,7 +28,7 @@ The app asks to use the camera or your photo library only so you can attach pict
 
 ## Purchases
 
-If you buy the one-time unlock in the App Store version, Apple handles the payment. We do not receive your payment details.
+If you subscribe or buy lifetime access in the App Store version, Apple handles the payment and the subscription. We do not receive your payment details.
 
 ## Medical disclaimer
 

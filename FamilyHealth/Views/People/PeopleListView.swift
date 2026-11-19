@@ -52,7 +52,12 @@ struct PeopleListView: View {
                     }
                 }
             }
-            .sheet(isPresented: $isAddingPerson) {
+            .sheet(isPresented: $isAddingPerson, onDismiss: {
+                // Offer the plans once, right after the first family member is added.
+                if purchases.shouldOfferPlans(peopleCount: people.count) {
+                    isShowingUnlock = true
+                }
+            }) {
                 NavigationStack {
                     PersonEditView(person: nil, nextSortOrder: (people.map(\.sortOrder).max() ?? -1) + 1)
                 }

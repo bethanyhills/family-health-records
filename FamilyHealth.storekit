@@ -5,18 +5,18 @@
   ],
   "products" : [
     {
-      "displayPrice" : "6.99",
+      "displayPrice" : "19.99",
       "familyShareable" : true,
       "internalID" : "6740000001",
       "localizations" : [
         {
-          "description" : "Keep adding and editing your family's records, for good.",
-          "displayName" : "Unlock Family Health Binder",
+          "description" : "Pay once and keep adding and editing your family's records, for good.",
+          "displayName" : "Lifetime Access",
           "locale" : "en_US"
         }
       ],
       "productID" : "com.bethanyhills.FamilyHealth.unlock",
-      "referenceName" : "Unlock",
+      "referenceName" : "Lifetime",
       "type" : "NonConsumable"
     }
   ],
@@ -24,10 +24,51 @@
 
   },
   "subscriptionGroups" : [
+    {
+      "id" : "21600001",
+      "localizations" : [
 
+      ],
+      "name" : "Family Health Binder Plans",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "6740000002",
+          "introductoryOffer" : {
+            "internalID" : "6740000003",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "localizations" : [
+            {
+              "description" : "Add and edit your family's records. Renews every year.",
+              "displayName" : "Annual Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.bethanyhills.FamilyHealth.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Annual",
+          "subscriptionGroupID" : "21600001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
   ],
   "version" : {
-    "major" : 3,
+    "major" : 4,
     "minor" : 0
   }
 }
