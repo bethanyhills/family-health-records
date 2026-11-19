@@ -1,28 +1,29 @@
 import SwiftUI
 import UIKit
 
-/// Binder Navy, the app's colors. Every color has a light and a dark version.
+/// The app's colors, taken from the Health Binder logo: a deep navy, the logo's
+/// light blue tabs and its red. Every color has a light and a dark version.
 /// The main navy is also the app's AccentColor (Assets.xcassets), so buttons,
 /// links, toggles and the "+" buttons pick it up without any code.
 enum Theme {
-    /// Main brand color: navy in light mode, sky blue in dark mode.
-    static let navy = Color(light: 0x1F3A5F, dark: 0x8DB4E8)
-    /// Second accent, like a binder's colored divider tab.
-    static let amber = Color(light: 0xC9821E, dark: 0xF2C271)
+    /// Main brand color: logo navy in light mode, the logo's light blue in dark mode.
+    static let navy = Color(light: 0x2B3F75, dark: 0x77A8F3)
+    /// The logo's red. For the logo and small marks, not for words.
+    static let red = Color(light: 0xEB473B, dark: 0xF0685D)
     /// Screen background behind the white cards.
-    static let background = Color(light: 0xF3F5F9, dark: 0x0D131C)
+    static let background = Color(light: 0xF4F6FB, dark: 0x070A1F)
     /// Card background on screens that are not lists.
-    static let card = Color(light: 0xFFFFFF, dark: 0x172131)
+    static let card = Color(light: 0xFFFFFF, dark: 0x141933)
 
     /// Soft avatar colors, so family members are easy to tell apart.
     /// Each pair is (circle fill, initials color).
     static let avatarPalette: [(fill: Color, text: Color)] = [
-        (Color(light: 0xDCE6F3, dark: 0x23385A), Color(light: 0x1F3A5F, dark: 0xA9C8F0)),
-        (Color(light: 0xFBECD2, dark: 0x3D2F17), Color(light: 0x8A5A10, dark: 0xF2C271)),
+        (Color(light: 0xDCE6F8, dark: 0x1E2C55), Color(light: 0x2B3F75, dark: 0xA9C8F5)),
+        (Color(light: 0xFCE1DE, dark: 0x3F1A17), Color(light: 0xB0322A, dark: 0xFF9A90)),
         (Color(light: 0xDDEFE8, dark: 0x173A30), Color(light: 0x22664F, dark: 0x8FD3B8)),
-        (Color(light: 0xF1E3F2, dark: 0x3A2340), Color(light: 0x7A3D82, dark: 0xDDB0E3)),
-        (Color(light: 0xFCE3DD, dark: 0x40221C), Color(light: 0xA3402B, dark: 0xF39A85)),
-        (Color(light: 0xE3EEFB, dark: 0x1D3350), Color(light: 0x2C5A96, dark: 0x8DB4E8)),
+        (Color(light: 0xEDE4F7, dark: 0x2E2346), Color(light: 0x5B3E8F, dark: 0xCDB6F0)),
+        (Color(light: 0xFBECD2, dark: 0x3D2F17), Color(light: 0x8A5A10, dark: 0xF2C271)),
+        (Color(light: 0xE1F0FB, dark: 0x16324A), Color(light: 0x245E8A, dark: 0x8CC6F0)),
     ]
 
     /// The same person always gets the same color, based on their initials.
