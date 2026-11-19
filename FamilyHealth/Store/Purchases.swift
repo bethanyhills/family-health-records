@@ -127,7 +127,11 @@ final class Purchases {
             case Self.lifetimeProductID:
                 lifetimeOwned = true
             case Self.annualProductID:
-                if let expires = transaction.expirationDate, expires >= (until ?? expires) {
+                if var expires = transaction.expirationDate, expires >= (until ?? expires) {
+                    // Still listed after its end date means Apple's billing
+                    // grace period (a failed card being retried), so the plan
+                    // keeps working. Check again tomorrow.
+                    expires = max(expires, Date.now.addingTimeInterval(86_400))
                     until = expires
                     freeTrial = Self.isFreeTrial(transaction)
                 }
